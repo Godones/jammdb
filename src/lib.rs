@@ -110,7 +110,7 @@
 //!     Ok(())
 //! }
 //!
-
+#![feature(error_in_core)]
 #[allow(clippy::mutable_key_type)]
 mod bucket;
 mod bytes;
@@ -125,6 +125,7 @@ mod node;
 mod page;
 mod page_node;
 mod tx;
+extern crate alloc;
 
 pub use crate::bytes::ToBytes;
 pub use bucket::Bucket;

@@ -1,9 +1,13 @@
 use jammdb::Error;
-use page_size::get as get_page_size;
+
 
 mod common;
 
 use common::record::*;
+
+const fn get_page_size()->usize{
+    4096
+}
 
 #[test]
 fn huge_values() -> Result<(), Error> {

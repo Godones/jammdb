@@ -1,9 +1,8 @@
-use std::{
+use core::{
     cmp::Ordering,
     hash::{Hash, Hasher},
-    rc::Rc,
 };
-
+use alloc::rc::Rc;
 pub trait ToBytes<'a> {
     fn to_bytes(self) -> Bytes<'a>;
 }

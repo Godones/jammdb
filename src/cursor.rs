@@ -1,5 +1,5 @@
-use std::{cell::RefCell, marker::PhantomData, rc::Rc};
-
+use core::{cell::RefCell, marker::PhantomData};
+use alloc::rc::Rc;
 use crate::{
     bucket::{Bucket, InnerBucket},
     data::Data,

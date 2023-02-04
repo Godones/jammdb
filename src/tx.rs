@@ -1,12 +1,15 @@
 use std::{
-    cell::RefCell,
-    collections::HashSet,
-    fs::File,
-    io::{Seek, SeekFrom, Write},
-    marker::PhantomData,
-    rc::Rc,
-    sync::{MutexGuard, RwLockReadGuard},
+    fs::File
 };
+use std::io::{Seek, SeekFrom, Write};
+use hashbrown::HashSet;
+use core::{
+    cell::RefCell,
+    marker::PhantomData,
+};
+use alloc::rc::Rc;
+use spin::{MutexGuard,RwLockReadGuard};
+
 
 use crate::{
     bucket::{Bucket, BucketMeta, InnerBucket},
@@ -110,14 +113,14 @@ pub(crate) struct TxInner<'tx> {
 impl<'tx> Tx<'tx> {
     pub(crate) fn new(db: &'tx DB, writable: bool) -> Result<Tx<'tx>> {
         let lock = match writable {
-            true => TxLock::Rw(db.inner.file.lock()?),
-            false => TxLock::Ro(db.inner.mmap_lock.read()?),
+            true => TxLock::Rw(db.inner.file.lock()),
+            false => TxLock::Ro(db.inner.mmap_lock.read()),
         };
-        let mut freelist = db.inner.freelist.lock()?.clone();
+        let mut freelist = db.inner.freelist.lock().clone();
         let mut meta = db.inner.meta()?;
         debug_assert!(meta.valid());
         {
-            let mut open_ro_txs = db.inner.open_ro_txs.lock().unwrap();
+            let mut open_ro_txs = db.inner.open_ro_txs.lock();
             if writable {
                 meta.tx_id += 1;
                 if open_ro_txs.len() > 0 {
@@ -132,7 +135,7 @@ impl<'tx> Tx<'tx> {
         }
         let freelist = Rc::new(RefCell::new(TxFreelist::new(meta.clone(), freelist)));
 
-        let data = db.inner.data.lock()?.clone();
+        let data = db.inner.data.lock().clone();
         let pages = Pages::new(data, db.inner.pagesize);
         let num_freelist_pages = pages.page(meta.freelist_page).overflow + 1;
         let root = InnerBucket::from_meta(meta.root, pages.clone());
@@ -347,7 +350,7 @@ impl<'tx> TxInner<'tx> {
             file.flush()?;
             file.sync_all()?;
 
-            let mut lock = self.db.inner.freelist.lock()?;
+            let mut lock = self.db.inner.freelist.lock();
             *lock = freelist.inner.clone();
             Ok(())
         } else {
@@ -477,7 +480,7 @@ impl<'tx> TxInner<'tx> {
 impl<'tx> Drop for TxInner<'tx> {
     fn drop(&mut self) {
         if !self.lock.writable() {
-            let mut open_txs = self.db.inner.open_ro_txs.lock().unwrap();
+            let mut open_txs = self.db.inner.open_ro_txs.lock();
             let index = match open_txs.binary_search(&self.meta.tx_id) {
                 Ok(i) => i,
                 _ => return, // this shouldn't happen, but isn't the end of the world if it does
@@ -533,7 +536,7 @@ mod tests {
             assert_eq!(tx.pages.data.len(), 1024 * 10);
             assert!(!tx.lock.writable());
             {
-                let open_ro_txs = tx.db.inner.open_ro_txs.lock().unwrap();
+                let open_ro_txs = tx.db.inner.open_ro_txs.lock();
                 assert_eq!(open_ro_txs.len(), 1);
                 assert_eq!(open_ro_txs[0], tx.meta.tx_id);
             }

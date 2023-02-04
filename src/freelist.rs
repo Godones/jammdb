@@ -1,7 +1,7 @@
-use std::alloc::Layout;
-use std::collections::{BTreeMap, BTreeSet};
-use std::mem::size_of;
-use std::ptr::NonNull;
+use core::alloc::Layout;
+use alloc::collections::{BTreeMap, BTreeSet};
+use core::mem::size_of;
+use core::ptr::NonNull;
 
 use bumpalo::Bump;
 

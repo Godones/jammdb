@@ -1,11 +1,11 @@
 use memmap2::Mmap;
-use page_size::get as get_page_size;
 use std::{
     fs::{File, OpenOptions as FileOpenOptions},
-    io::Write,
     path::Path,
-    sync::{Arc, Mutex, RwLock},
 };
+use alloc::sync::Arc;
+use std::io::Write;
+use spin::{Mutex,RwLock};
 
 use crate::{bucket::BucketMeta, errors::Result, page::Page, tx::Tx};
 use crate::{freelist::Freelist, meta::Meta};
@@ -14,6 +14,9 @@ use fs2::FileExt;
 const MAGIC_VALUE: u32 = 0x00AB_CDEF;
 const VERSION: u32 = 1;
 
+const fn get_page_size()->usize{
+    4096
+}
 // Minimum number of bytes to allocate when growing the databse
 pub(crate) const MIN_ALLOC_SIZE: u64 = 8 * 1024 * 1024;
 
@@ -219,11 +222,11 @@ impl DBInner {
 
         {
             let meta = db.meta()?;
-            let data = db.data.lock()?;
+            let data = db.data.lock();
             let free_pages = Page::from_buf(&data, meta.freelist_page, pagesize).freelist();
 
             if !free_pages.is_empty() {
-                db.freelist.lock()?.init(free_pages);
+                db.freelist.lock().init(free_pages);
             }
         }
 
@@ -232,15 +235,15 @@ impl DBInner {
 
     pub(crate) fn resize(&self, file: &File, new_size: u64) -> Result<Arc<Mmap>> {
         file.allocate(new_size)?;
-        let _lock = self.mmap_lock.write()?;
-        let mut data = self.data.lock()?;
+        let _lock = self.mmap_lock.write();
+        let mut data = self.data.lock();
         let mmap = mmap(file)?;
         *data = Arc::new(mmap);
         Ok(data.clone())
     }
 
     pub(crate) fn meta(&self) -> Result<Meta> {
-        let data = self.data.lock()?;
+        let data = self.data.lock();
         let meta1 = Page::from_buf(&data, 0, self.pagesize).meta();
 
         // Double check that we have the right pagesize before we read the second page.

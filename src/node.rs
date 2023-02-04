@@ -1,6 +1,6 @@
-use std::cell::RefCell;
-use std::mem::size_of;
-use std::rc::Rc;
+use core::cell::RefCell;
+use core::mem::size_of;
+use alloc::rc::Rc;
 
 use crate::bucket::{BucketMeta, InnerBucket, META_SIZE};
 use crate::bytes::Bytes;

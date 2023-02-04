@@ -1,9 +1,9 @@
-use std::{
+use core::{
     cell::{RefCell, RefMut},
-    collections::HashMap,
     marker::PhantomData,
-    rc::Rc,
 };
+use alloc::rc::Rc;
+use hashbrown::HashMap;
 
 use crate::{
     bytes::{Bytes, ToBytes},

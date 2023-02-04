@@ -1,9 +1,6 @@
-use std::error::Error as StdError;
-use std::fmt;
-use std::sync::PoisonError;
-
-pub(crate) type Result<T> = std::result::Result<T, Error>;
-
+use core::error::Error as StdError;
+use core::fmt;
+pub(crate) type Result<T> = core::result::Result<T, Error>;
 /// Possible database errors
 #[derive(Debug)]
 pub enum Error {
@@ -48,11 +45,6 @@ impl From<std::io::Error> for Error {
     }
 }
 
-impl<T> From<PoisonError<T>> for Error {
-    fn from(_: PoisonError<T>) -> Error {
-        Error::Sync("lock poisoned")
-    }
-}
 
 impl PartialEq for Error {
     fn eq(&self, other: &Self) -> bool {
