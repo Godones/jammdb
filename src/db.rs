@@ -1,11 +1,11 @@
+use alloc::sync::Arc;
 use memmap2::Mmap;
+use spin::{Mutex, RwLock};
+use std::io::Write;
 use std::{
     fs::{File, OpenOptions as FileOpenOptions},
     path::Path,
 };
-use alloc::sync::Arc;
-use std::io::Write;
-use spin::{Mutex,RwLock};
 
 use crate::{bucket::BucketMeta, errors::Result, page::Page, tx::Tx};
 use crate::{freelist::Freelist, meta::Meta};
@@ -14,7 +14,7 @@ use fs2::FileExt;
 const MAGIC_VALUE: u32 = 0x00AB_CDEF;
 const VERSION: u32 = 1;
 
-const fn get_page_size()->usize{
+const fn get_page_size() -> usize {
     4096
 }
 // Minimum number of bytes to allocate when growing the databse

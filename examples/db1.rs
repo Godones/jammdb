@@ -1,6 +1,10 @@
-use jammdb::{DB, Data, Error};
+use jammdb::{Data, Error, DB};
 
 fn main() -> Result<(), Error> {
+    let path = std::path::Path::new("my-database.db");
+    if path.exists(){
+        std::fs::remove_file(path).unwrap();
+    }
     {
         // open a new database file
         let db = DB::open("my-database.db")?;
@@ -10,8 +14,8 @@ fn main() -> Result<(), Error> {
 
         // create a bucket to store a map of first names to last names
         let mut names_bucket = tx.create_bucket("names")?;
-        for i in 0..10{
-            names_bucket = names_bucket.create_bucket(format!("names{}",i))?;
+        for i in 0..10 {
+            names_bucket = names_bucket.create_bucket(format!("names{}", i))?;
         }
 
         names_bucket.put("Kanan", "Jarrus")?;
@@ -32,5 +36,6 @@ fn main() -> Result<(), Error> {
             assert_eq!(data.kv().value(), b"Jarrus");
         }
     }
+    println!("test jammdb ok");
     Ok(())
 }

@@ -1,7 +1,7 @@
-use std::io::Write;
+use alloc::sync::Arc;
 use core::mem::size_of;
 use core::slice::{from_raw_parts, from_raw_parts_mut};
-use alloc::sync::Arc;
+use std::io::Write;
 
 use memmap2::Mmap;
 

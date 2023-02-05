@@ -1,11 +1,10 @@
 use jammdb::Error;
 
-
 mod common;
 
 use common::record::*;
 
-const fn get_page_size()->usize{
+const fn get_page_size() -> usize {
     4096
 }
 

@@ -111,6 +111,7 @@
 //! }
 //!
 #![feature(error_in_core)]
+// #![no_std]
 #[allow(clippy::mutable_key_type)]
 mod bucket;
 mod bytes;
@@ -119,13 +120,17 @@ mod data;
 mod db;
 mod errors;
 mod freelist;
+mod fs;
 mod lifetimes;
 mod meta;
 mod node;
 mod page;
 mod page_node;
 mod tx;
+
 extern crate alloc;
+#[macro_use]
+extern crate log;
 
 pub use crate::bytes::ToBytes;
 pub use bucket::Bucket;

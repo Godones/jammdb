@@ -1,5 +1,3 @@
-use core::{cell::RefCell, marker::PhantomData};
-use alloc::rc::Rc;
 use crate::{
     bucket::{Bucket, InnerBucket},
     data::Data,
@@ -8,6 +6,8 @@ use crate::{
     page_node::PageNodeID,
     BucketName, KVPair,
 };
+use alloc::rc::Rc;
+use core::{cell::RefCell, marker::PhantomData};
 
 /// An iterator over a bucket
 ///

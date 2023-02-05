@@ -1,8 +1,8 @@
+use alloc::rc::Rc;
 use core::{
     cell::{RefCell, RefMut},
     marker::PhantomData,
 };
-use alloc::rc::Rc;
 use hashbrown::HashMap;
 
 use crate::{

@@ -1,5 +1,5 @@
-use core::alloc::Layout;
 use alloc::collections::{BTreeMap, BTreeSet};
+use core::alloc::Layout;
 use core::mem::size_of;
 use core::ptr::NonNull;
 

@@ -1,9 +1,9 @@
-use core::{cell::RefCell};
-use alloc::rc::Rc;
 use crate::{
     node::{Leaf, Node, NodeData, NodeID},
     page::{Page, PageID},
 };
+use alloc::rc::Rc;
+use core::cell::RefCell;
 
 #[derive(Clone, Copy)]
 pub(crate) enum PageNodeID {

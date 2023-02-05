@@ -45,7 +45,6 @@ impl From<std::io::Error> for Error {
     }
 }
 
-
 impl PartialEq for Error {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
