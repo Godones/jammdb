@@ -1,11 +1,12 @@
 use jammdb::{Bucket, Data, Error, OpenOptions};
+use jammdb::memfile::{FileOpenOptions, Mmap};
 
 mod common;
 
 #[test]
 fn tx_isolation() -> Result<(), Error> {
     let random_file = common::RandomFile::new();
-    let db = OpenOptions::new().strict_mode(true).open(&random_file)?;
+    let db = OpenOptions::new().strict_mode(true).open::<_,FileOpenOptions,Mmap>(&random_file)?;
     {
         let ro_tx = db.tx(false)?;
         let wr_tx = db.tx(true)?;

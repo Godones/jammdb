@@ -111,7 +111,7 @@
 //! }
 //!
 #![feature(error_in_core)]
-// #![no_std]
+#![no_std]
 #[allow(clippy::mutable_key_type)]
 mod bucket;
 mod bytes;
@@ -120,14 +120,15 @@ mod data;
 mod db;
 mod errors;
 mod freelist;
-mod fs;
 mod lifetimes;
 mod meta;
 mod node;
 mod page;
 mod page_node;
 mod tx;
-
+mod fs;
+#[cfg(test)]
+extern crate std;
 extern crate alloc;
 #[macro_use]
 extern crate log;
@@ -139,21 +140,28 @@ pub use data::*;
 pub use db::{OpenOptions, DB};
 pub use errors::*;
 pub use tx::Tx;
+pub use fs::memfile;
+pub use fs::*;
 
 #[cfg(test)]
-///
-/// ```
-/// let a: u64 = 0_i32;
-/// ```
-///
 mod testutil {
-    use std::io::Write;
+    use core::fmt::{Display, Formatter};
+    use std::ops::Deref;
+    use rand::distributions::Alphanumeric;
+    use rand::Rng;
+    use std::string::String;
+    use std::vec::Vec;
+    use crate::fs::{MetaData, PathLike};
 
-    use bytes::{BufMut, Bytes, BytesMut};
-    use rand::{distributions::Alphanumeric, Rng};
-
+    #[derive(Debug)]
     pub struct RandomFile {
-        pub path: std::path::PathBuf,
+        pub path: String,
+    }
+
+    impl Display for RandomFile{
+        fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+            write!(f, "{}", self.path)
+        }
     }
 
     impl RandomFile {
@@ -166,36 +174,40 @@ mod testutil {
                         .collect::<Vec<u8>>()
                         .as_slice(),
                 )
-                .unwrap()
-                .into();
-                let path = std::env::temp_dir().join(filename);
-                if !path.exists() {
-                    return RandomFile { path };
+                    .unwrap()
+                    .into();
+                let path = std::env::temp_dir().join(filename.clone());
+                if path.metadata().is_err() {
+                    return RandomFile { path: filename };
                 }
             }
         }
     }
 
-    impl AsRef<std::path::Path> for RandomFile {
-        fn as_ref(&self) -> &std::path::Path {
-            self.path.as_ref()
+
+
+    impl PathLike for RandomFile {
+        fn exists(&self) -> bool {
+            let x = &self.path;
+            x.exists()
+        }
+    }
+
+    impl PathLike for &RandomFile {
+        fn exists(&self) -> bool {
+            let x = &self.path;
+            x.exists()
         }
     }
 
     impl Drop for RandomFile {
-        fn drop(&mut self) {
-            let _ = std::fs::remove_file(&self.path);
-        }
+        #[allow(unused_must_use)]
+        fn drop(&mut self) {}
     }
-
-    pub fn rand_bytes(size: usize) -> Bytes {
-        let buf = BytesMut::new();
-        let mut w = buf.writer();
-        for byte in rand::thread_rng().sample_iter(&Alphanumeric).take(size) {
-            let _ = write!(&mut w, "{}", byte);
-            // let _ = w.write(&[byte]);
-        }
-
-        w.into_inner().freeze()
+    pub fn rand_bytes(len: usize) -> Vec<u8> {
+        rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(len)
+            .collect::<Vec<u8>>()
     }
 }

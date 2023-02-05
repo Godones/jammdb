@@ -1,4 +1,6 @@
 use alloc::rc::Rc;
+use alloc::vec;
+use alloc::vec::Vec;
 use core::{
     cell::{RefCell, RefMut},
     marker::PhantomData,
@@ -942,7 +944,7 @@ impl<'b> InnerBucket<'b> {
     }
 }
 
-pub const META_SIZE: usize = std::mem::size_of::<BucketMeta>();
+pub const META_SIZE: usize = core::mem::size_of::<BucketMeta>();
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -955,7 +957,7 @@ impl AsRef<[u8]> for BucketMeta {
     #[inline]
     fn as_ref(&self) -> &[u8] {
         let ptr = self as *const BucketMeta as *const u8;
-        unsafe { std::slice::from_raw_parts(ptr, META_SIZE) }
+        unsafe { core::slice::from_raw_parts(ptr, META_SIZE) }
     }
 }
 
@@ -970,7 +972,7 @@ impl From<&[u8]> for BucketMeta {
 mod tests {
 
     use crate::{testutil::RandomFile, DB};
-
+    use crate::memfile::{Mmap,FileOpenOptions};
     use super::*;
 
     #[test]
@@ -990,7 +992,7 @@ mod tests {
             #[should_panic(expected = $expected_err)]
     		fn $name() {
                 let random_file = RandomFile::new();
-                let db = DB::open(&random_file).unwrap();
+                let db = DB::<Mmap>::open::<FileOpenOptions,_>(&random_file).unwrap();
                 let tx = db.tx(true).unwrap();
                 let b = tx.create_bucket("abc").unwrap();
                 tx.delete_bucket("abc").unwrap();
@@ -1045,7 +1047,7 @@ mod tests {
     		#[test]
     		fn $name() -> Result<()> {
                 let random_file = RandomFile::new();
-                let db = DB::open(&random_file)?;
+                let db = DB::<Mmap>::open::<FileOpenOptions,_>(&random_file)?;
                 {
 
                     let tx = db.tx(true)?;

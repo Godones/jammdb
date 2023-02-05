@@ -1,9 +1,11 @@
 use alloc::rc::Rc;
+use alloc::{format, vec};
+use alloc::vec::Vec;
 use core::{cell::RefCell, marker::PhantomData};
 use hashbrown::HashSet;
 use spin::{MutexGuard, RwLockReadGuard};
-use std::fs::File;
-use std::io::{Seek, SeekFrom, Write};
+use crate::fs::{File, MemoryMap};
+use core2::io::{SeekFrom};
 
 use crate::{
     bucket::{Bucket, BucketMeta, InnerBucket},
@@ -90,12 +92,12 @@ impl<'tx> TxLock<'tx> {
 /// <sup>2</sup> Keep in mind that long running read-only transactions will prevent the database from
 /// reclaiming old pages and your database may increase in disk size quickly if you're writing lots of data,
 /// so it's a good idea to keep transactions short.
-pub struct Tx<'tx> {
-    pub(crate) inner: RefCell<TxInner<'tx>>,
+pub struct Tx<'tx,M> {
+    pub(crate) inner: RefCell<TxInner<'tx, M>>,
 }
 
-pub(crate) struct TxInner<'tx> {
-    pub(crate) db: &'tx DB,
+pub(crate) struct TxInner<'tx,M> {
+    pub(crate) db: &'tx DB<M>,
     pub(crate) lock: TxLock<'tx>,
     pub(crate) root: Rc<RefCell<InnerBucket<'tx>>>,
     pub(crate) meta: Meta,
@@ -104,8 +106,8 @@ pub(crate) struct TxInner<'tx> {
     num_freelist_pages: u64,
 }
 
-impl<'tx> Tx<'tx> {
-    pub(crate) fn new(db: &'tx DB, writable: bool) -> Result<Tx<'tx>> {
+impl<'tx,M:MemoryMap+'static> Tx<'tx,M> {
+    pub(crate) fn new(db: &'tx DB<M>, writable: bool) -> Result<Tx<'tx,M>> {
         let lock = match writable {
             true => TxLock::Rw(db.inner.file.lock()),
             false => TxLock::Ro(db.inner.mmap_lock.read()),
@@ -273,7 +275,7 @@ impl<'tx> Tx<'tx> {
     }
 }
 
-impl<'tx> TxInner<'tx> {
+impl<'tx,M:MemoryMap+'static> TxInner<'tx, M> {
     fn write_data(&mut self, freelist: &mut TxFreelist) -> Result<()> {
         if let TxLock::Rw(file) = &mut self.lock {
             // Write the freelist to a new page
@@ -307,7 +309,7 @@ impl<'tx> TxInner<'tx> {
                 // freelist.pages is a BTreeMap so we're writing the pages in order to minmize
                 // the random seeks.
                 for (page_id, (ptr, size)) in freelist.pages.iter() {
-                    let buf = unsafe { std::slice::from_raw_parts(ptr.as_ptr(), *size) };
+                    let buf = unsafe { core::slice::from_raw_parts(ptr.as_ptr(), *size) };
                     file.seek(SeekFrom::Start(self.db.inner.pagesize * page_id))?;
                     file.write_all(buf)?;
                 }
@@ -471,7 +473,7 @@ impl<'tx> TxInner<'tx> {
     }
 }
 
-impl<'tx> Drop for TxInner<'tx> {
+impl<'tx,M> Drop for TxInner<'tx, M> {
     fn drop(&mut self) {
         if !self.lock.writable() {
             let mut open_txs = self.db.inner.open_ro_txs.lock();
@@ -486,16 +488,16 @@ impl<'tx> Drop for TxInner<'tx> {
 
 #[cfg(test)]
 mod tests {
-    use std::mem::size_of;
-
+    use core::mem::size_of;
     use super::*;
     use crate::db::{OpenOptions, DB};
+    use crate::memfile::{FileOpenOptions, Mmap};
     use crate::testutil::RandomFile;
 
     #[test]
     fn test_ro_txs() -> Result<()> {
         let random_file = RandomFile::new();
-        let db = DB::open(&random_file)?;
+        let db = DB::<Mmap>::open::<FileOpenOptions,_>(&random_file)?;
 
         {
             let tx = db.tx(true)?;
@@ -521,7 +523,7 @@ mod tests {
             .pagesize(1024)
             // make sure we have plenty of pages so we don't have to resize while the read-only tx is open
             .num_pages(10)
-            .open(&random_file)?;
+            .open::<_,FileOpenOptions,Mmap>(&random_file)?;
         {
             // create a read-only tx
             let tx = db.tx(false)?;

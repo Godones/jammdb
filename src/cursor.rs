@@ -7,6 +7,7 @@ use crate::{
     BucketName, KVPair,
 };
 use alloc::rc::Rc;
+use alloc::vec::Vec;
 use core::{cell::RefCell, marker::PhantomData};
 
 /// An iterator over a bucket
@@ -248,12 +249,13 @@ impl<'b, 'tx> Iterator for KVPairs<'b, 'tx> {
 mod tests {
     use crate::db::DB;
     use crate::errors::Result;
+    use crate::memfile::{FileOpenOptions, Mmap};
     use crate::testutil::RandomFile;
 
     #[test]
     fn test_iters() -> Result<()> {
         let random_file = RandomFile::new();
-        let db = DB::open(&random_file)?;
+        let db = DB::<Mmap>::open::<FileOpenOptions,_>(&random_file)?;
         // Put in some intermixed key / value pairs and sub-buckets.
         {
             let tx = db.tx(true)?;
@@ -314,7 +316,7 @@ mod tests {
     #[should_panic]
     fn deleted_bucket_create_cursor() {
         let random_file = RandomFile::new();
-        let db = DB::open(&random_file).unwrap();
+        let db = DB::<Mmap>::open::<FileOpenOptions,_>(&random_file).unwrap();
         let tx = db.tx(true).unwrap();
         let b = tx.create_bucket("abc").unwrap();
         tx.delete_bucket("abc").unwrap();
@@ -326,7 +328,7 @@ mod tests {
     #[should_panic]
     fn deleted_bucket_create_iterate() {
         let random_file = RandomFile::new();
-        let db = DB::open(&random_file).unwrap();
+        let db = DB::<Mmap>::open::<FileOpenOptions,_>(&random_file).unwrap();
         let tx = db.tx(true).unwrap();
         let b = tx.create_bucket("abc").unwrap();
         let mut c = b.cursor();

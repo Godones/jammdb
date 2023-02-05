@@ -1,12 +1,25 @@
 #[allow(dead_code)]
 #[allow(clippy::mutable_key_type)]
 pub mod record;
-use std::path::Path;
 
-use rand::{distributions::Alphanumeric, Rng};
+use core::fmt::{Display, Formatter};
+use std::ops::Deref;
+use rand::distributions::Alphanumeric;
+use rand::Rng;
+use std::string::String;
+use std::vec::Vec;
+use jammdb::PathLike;
 
+
+#[derive(Debug)]
 pub struct RandomFile {
-    pub path: std::path::PathBuf,
+    pub path: String,
+}
+
+impl Display for RandomFile{
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", self.path)
+    }
 }
 
 impl RandomFile {
@@ -19,25 +32,41 @@ impl RandomFile {
                     .collect::<Vec<u8>>()
                     .as_slice(),
             )
-            .unwrap()
-            .into();
-            let path = std::env::temp_dir().join(filename);
+                .unwrap()
+                .into();
+            let path = std::env::temp_dir().join(filename.clone());
             if path.metadata().is_err() {
-                return RandomFile { path };
+                return RandomFile { path: filename };
             }
         }
     }
 }
 
-impl AsRef<Path> for RandomFile {
-    fn as_ref(&self) -> &Path {
-        self.path.as_path()
+
+
+impl PathLike for RandomFile {
+    fn exists(&self) -> bool {
+        let x = &self.path;
+        x.exists()
+    }
+}
+
+impl PathLike for &RandomFile {
+    fn exists(&self) -> bool {
+        let x = &self.path;
+        x.exists()
     }
 }
 
 impl Drop for RandomFile {
     #[allow(unused_must_use)]
-    fn drop(&mut self) {
-        std::fs::remove_file(&self.path);
-    }
+    fn drop(&mut self) {}
 }
+pub fn rand_bytes(len: usize) -> Vec<u8> {
+    rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(len)
+        .collect::<Vec<u8>>()
+}
+
+

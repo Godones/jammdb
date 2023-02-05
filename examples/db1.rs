@@ -1,4 +1,6 @@
-use jammdb::{Data, Error, DB};
+use std::collections::HashMap;
+use jammdb::{Data, Error, DB, OpenOptions};
+use jammdb::memfile::{FileOpenOptions, Mmap};
 
 fn main() -> Result<(), Error> {
     let path = std::path::Path::new("my-database.db");
@@ -7,7 +9,7 @@ fn main() -> Result<(), Error> {
     }
     {
         // open a new database file
-        let db = DB::open("my-database.db")?;
+        let db = DB::<Mmap>::open::<FileOpenOptions, _>("my-database.db")?;
 
         // open a writable transaction so we can make changes
         let tx = db.tx(true)?;
@@ -26,7 +28,7 @@ fn main() -> Result<(), Error> {
     }
     {
         // open the existing database file
-        let db = DB::open("my-database.db")?;
+        let db = DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
         // open a read-only transaction to get the data
         let tx = db.tx(true)?;
         // get the bucket we created in the last transaction

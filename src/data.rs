@@ -203,6 +203,7 @@ impl<'b, 'tx> From<Leaf<'tx>> for Option<KVPair<'b, 'tx>> {
 
 #[cfg(test)]
 mod tests {
+    use std::vec;
     use super::*;
 
     #[test]

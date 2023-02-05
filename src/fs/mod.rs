@@ -2,12 +2,14 @@
 //!
 //! jammdb依赖操作系统的文件系统接口，在no_std环境下无法直接使用，
 //! 因此这里自定义了文件接口，以便在no_std环境下使用。
-mod memfile;
+pub mod memfile;
 
 use alloc::boxed::Box;
 use alloc::string::ToString;
+use core::fmt::{Debug, Display};
 use core::ops::{Deref, DerefMut};
 use core2::io::{Read, Seek, Write};
+
 
 pub type IOResult<T> = core2::io::Result<T>;
 
@@ -63,7 +65,7 @@ pub trait OpenOption {
     fn create(&mut self, create: bool) -> &mut Self;
 }
 
-pub trait PathLike {
+pub trait PathLike:Display+Debug {
     fn exists(&self) -> bool;
 }
 

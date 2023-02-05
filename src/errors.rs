@@ -1,3 +1,5 @@
+use alloc::format;
+use alloc::string::String;
 use core::error::Error as StdError;
 use core::fmt;
 pub(crate) type Result<T> = core::result::Result<T, Error>;
@@ -15,7 +17,7 @@ pub enum Error {
     /// Tried to write to a read only transaction
     ReadOnlyTx,
     /// Wrapper around a [`std::io::Error`] that occurred while opening the file or writing to it
-    Io(std::io::Error),
+    Io(core2::io::Error),
     /// Wrapper around a [`PoisonError`]
     Sync(&'static str),
     /// Error returned when the DB is found to be in an invalid state
@@ -39,8 +41,8 @@ impl fmt::Display for Error {
     }
 }
 
-impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Error {
+impl From<core2::io::Error> for Error {
+    fn from(err: core2::io::Error) -> Error {
         Error::Io(err)
     }
 }
