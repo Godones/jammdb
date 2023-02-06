@@ -16,7 +16,8 @@ use crate::ToBytes;
 /// # use jammdb::Error;
 ///
 /// # fn main() -> Result<(), Error> {
-/// let db = DB::open("my.db")?;
+/// use jammdb::memfile::{FileOpenOptions, Mmap};
+/// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
 /// let mut tx = db.tx(true)?;
 /// let bucket = tx.create_bucket("my-bucket")?;
 ///
@@ -52,6 +53,12 @@ impl<'b, 'tx> Data<'b, 'tx> {
         }
         panic!("Cannot get KVPair from BucketData");
     }
+    pub fn key(&self) -> &[u8] {
+        match self {
+            Self::Bucket(b) => b.name(),
+            Self::KeyValue(kv) => kv.key(),
+        }
+    }
 }
 
 impl<'b, 'tx> From<Leaf<'tx>> for Data<'b, 'tx> {
@@ -77,7 +84,8 @@ impl<'b, 'tx> From<Leaf<'tx>> for Data<'b, 'tx> {
 /// # use jammdb::Error;
 ///
 /// # fn main() -> Result<(), Error> {
-/// let db = DB::open("my.db")?;
+/// use jammdb::memfile::{FileOpenOptions, Mmap};
+/// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
 /// let mut tx = db.tx(true)?;
 /// let bucket = tx.create_bucket("my-bucket")?;
 ///
@@ -137,7 +145,8 @@ impl<'b, 'tx> ToBytes<'tx> for &BucketName<'b, 'tx> {
 /// # use jammdb::Error;
 ///
 /// # fn main() -> Result<(), Error> {
-/// let db = DB::open("my.db")?;
+/// use jammdb::memfile::{FileOpenOptions, Mmap};
+/// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
 /// let mut tx = db.tx(false)?;
 /// let bucket = tx.get_bucket("my-bucket")?;
 ///
@@ -204,6 +213,7 @@ impl<'b, 'tx> From<Leaf<'tx>> for Option<KVPair<'b, 'tx>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::vec;
 
     #[test]
     fn test_kv_pair() {

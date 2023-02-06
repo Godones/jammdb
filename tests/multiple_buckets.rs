@@ -1,3 +1,4 @@
+use jammdb::memfile::{FileOpenOptions, Mmap};
 use jammdb::{Bucket, Data, Error, OpenOptions, DB};
 
 mod common;
@@ -8,7 +9,7 @@ fn sibling_buckets() -> Result<(), Error> {
     {
         let db = OpenOptions::new()
             .strict_mode(true)
-            .open(&random_file.path)?;
+            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
         {
             let tx = db.tx(true)?;
             let b = tx.create_bucket("abc")?;
@@ -54,7 +55,7 @@ fn sibling_buckets() -> Result<(), Error> {
         }
     }
     {
-        let db = DB::open(&random_file.path)?;
+        let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file.path)?;
         let tx = db.tx(true)?;
         {
             let b = tx.get_bucket("abc")?;
@@ -65,7 +66,7 @@ fn sibling_buckets() -> Result<(), Error> {
             check_data(&b2, 901, 2, vec![]);
         }
     }
-    let db = DB::open(&random_file.path)?;
+    let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file.path)?;
     db.check()
 }
 
@@ -75,7 +76,7 @@ fn nested_buckets() -> Result<(), Error> {
     {
         let db = OpenOptions::new()
             .strict_mode(true)
-            .open(&random_file.path)?;
+            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
         {
             let tx = db.tx(true)?;
             let b = tx.create_bucket("abc")?;
@@ -119,7 +120,7 @@ fn nested_buckets() -> Result<(), Error> {
             tx.commit()?;
         }
     }
-    let db = DB::open(&random_file.path)?;
+    let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file.path)?;
     db.check()
 }
 
@@ -147,7 +148,7 @@ fn empty_nested_buckets() -> Result<(), Error> {
     {
         let db = OpenOptions::new()
             .strict_mode(true)
-            .open(&random_file.path)?;
+            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
         {
             let tx = db.tx(true)?;
             let _root = tx.get_or_create_bucket("ROOT")?;
@@ -183,6 +184,6 @@ fn empty_nested_buckets() -> Result<(), Error> {
             tx.commit()?;
         }
     }
-    let db = DB::open(&random_file.path)?;
+    let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file.path)?;
     db.check()
 }

@@ -1,3 +1,4 @@
+use alloc::string::String;
 use core::error::Error as StdError;
 use core::fmt;
 pub(crate) type Result<T> = core::result::Result<T, Error>;
@@ -15,7 +16,7 @@ pub enum Error {
     /// Tried to write to a read only transaction
     ReadOnlyTx,
     /// Wrapper around a [`std::io::Error`] that occurred while opening the file or writing to it
-    Io(std::io::Error),
+    Io(core2::io::Error),
     /// Wrapper around a [`PoisonError`]
     Sync(&'static str),
     /// Error returned when the DB is found to be in an invalid state
@@ -39,12 +40,11 @@ impl fmt::Display for Error {
     }
 }
 
-impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Error {
+impl From<core2::io::Error> for Error {
+    fn from(err: core2::io::Error) -> Error {
         Error::Io(err)
     }
 }
-
 
 impl PartialEq for Error {
     fn eq(&self, other: &Self) -> bool {
@@ -54,10 +54,49 @@ impl PartialEq for Error {
             (Error::KeyValueMissing, Error::KeyValueMissing) => true,
             (Error::IncompatibleValue, Error::IncompatibleValue) => true,
             (Error::ReadOnlyTx, Error::ReadOnlyTx) => true,
-            (Error::Io(s1), Error::Io(s2)) => format!("{}", s1) == format!("{}", s2),
             (Error::Sync(s1), Error::Sync(s2)) => s1 == s2,
             (Error::InvalidDB(s1), Error::InvalidDB(s2)) => s1 == s2,
             _ => false,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::format;
+
+    #[test]
+    fn test_error_display() {
+        assert_eq!(format!("{}", Error::BucketExists), "Bucket already exists");
+        assert_eq!(format!("{}", Error::BucketMissing), "Bucket does not exist");
+        assert_eq!(
+            format!("{}", Error::KeyValueMissing),
+            "Key / Value pair does not exist"
+        );
+        assert_eq!(
+            format!("{}", Error::IncompatibleValue),
+            "Value not compatible"
+        );
+        assert_eq!(
+            format!("{}", Error::ReadOnlyTx),
+            "Cannot write in a read-only transaction"
+        );
+
+        assert_eq!(
+            format!(
+                "{}",
+                Error::Io(core2::io::Error::new(
+                    core2::io::ErrorKind::NotFound,
+                    "oopsie"
+                ))
+            ),
+            "IO Error: oopsie"
+        );
+        assert_eq!(format!("{}", Error::Sync("abc")), "Sync Error: abc");
+        assert_eq!(
+            format!("{}", Error::InvalidDB(String::from("uh oh"))),
+            "Invalid DB: uh oh"
+        );
     }
 }

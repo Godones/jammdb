@@ -1,13 +1,12 @@
-use std::io::Write;
-use core::mem::size_of;
-use core::slice::{from_raw_parts, from_raw_parts_mut};
-use alloc::sync::Arc;
-
-use memmap2::Mmap;
-
 use crate::errors::Result;
+use crate::fs::MemoryMap;
 use crate::meta::Meta;
 use crate::node::{Node, NodeData, NodeType};
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::mem::size_of;
+use core::slice::{from_raw_parts, from_raw_parts_mut};
+use core2::io::Write;
 
 pub(crate) type PageID = u64;
 
@@ -15,12 +14,12 @@ pub(crate) type PageType = u8;
 
 #[derive(Clone)]
 pub(crate) struct Pages {
-    pub(crate) data: Arc<Mmap>,
+    pub(crate) data: Arc<dyn MemoryMap<Target = [u8]>>,
     pub(crate) pagesize: u64,
 }
 
 impl Pages {
-    pub fn new(data: Arc<Mmap>, pagesize: u64) -> Pages {
+    pub fn new(data: Arc<dyn MemoryMap<Target = [u8]>>, pagesize: u64) -> Pages {
         Pages { data, pagesize }
     }
 
@@ -195,7 +194,7 @@ impl BranchElement {
         let pos = self.pos as usize;
         unsafe {
             let start = self as *const BranchElement as *const u8;
-            let buf = std::slice::from_raw_parts(start, pos + (self.key_size as usize));
+            let buf = core::slice::from_raw_parts(start, pos + (self.key_size as usize));
             &buf[pos..]
         }
     }
@@ -214,7 +213,7 @@ impl LeafElement {
         let pos = self.pos as usize;
         unsafe {
             let start = self as *const LeafElement as *const u8;
-            let buf = std::slice::from_raw_parts(start, pos + self.key_size as usize);
+            let buf = from_raw_parts(start, pos + self.key_size as usize);
             &buf[pos..]
         }
     }
@@ -222,7 +221,7 @@ impl LeafElement {
         let pos = (self.pos + self.key_size) as usize;
         unsafe {
             let start = self as *const LeafElement as *const u8;
-            let buf = std::slice::from_raw_parts(start, pos + self.value_size as usize);
+            let buf = core::slice::from_raw_parts(start, pos + self.value_size as usize);
             &buf[pos..]
         }
     }

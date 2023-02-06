@@ -1,8 +1,11 @@
+use alloc::rc::Rc;
+use alloc::string::String;
+use alloc::vec::Vec;
 use core::{
     cmp::Ordering,
     hash::{Hash, Hasher},
 };
-use alloc::rc::Rc;
+
 pub trait ToBytes<'a> {
     fn to_bytes(self) -> Bytes<'a>;
 }
@@ -136,7 +139,8 @@ impl<'a> Hash for Bytes<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use alloc::vec;
+    use alloc::vec::Vec;
     #[test]
     fn from_vec() {
         let vec: Vec<u8> = vec![0, 0, 0];

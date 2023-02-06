@@ -1,19 +1,23 @@
+use alloc::rc::Rc;
+use alloc::vec;
+use alloc::vec::Vec;
 use core::{
     cell::{RefCell, RefMut},
     marker::PhantomData,
+    ops::RangeBounds,
 };
-use alloc::rc::Rc;
 use hashbrown::HashMap;
 
 use crate::{
     bytes::{Bytes, ToBytes},
-    cursor::{search, Buckets, Cursor, KVPairs},
+    cursor::{search, Cursor, Range, ToBuckets, ToKVPairs},
     data::{Data, KVPair},
     errors::{Error, Result},
     freelist::TxFreelist,
     node::{Leaf, Node, NodeData, NodeID},
     page::{Page, PageID, Pages},
     page_node::{PageNode, PageNodeID},
+    BucketName,
 };
 
 /// A collection of data
@@ -37,7 +41,8 @@ use crate::{
 /// # use jammdb::Error;
 ///
 /// # fn main() -> Result<(), Error> {
-/// let db = DB::open("my.db")?;
+/// use jammdb::memfile::{FileOpenOptions, Mmap};
+/// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
 /// let mut tx = db.tx(true)?;
 ///
 /// // create a root-level bucket
@@ -86,7 +91,8 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// let db = DB::open("my.db")?;
+    /// use jammdb::memfile::{FileOpenOptions, Mmap};
+    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
     /// let mut tx = db.tx(true)?;
     ///
     /// // create a root-level bucket
@@ -148,7 +154,8 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// let db = DB::open("my.db")?;
+    /// use jammdb::memfile::{FileOpenOptions, Mmap};
+    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
     /// let mut tx = db.tx(false)?;
     ///
     /// let bucket = tx.get_bucket("my-bucket")?;
@@ -186,7 +193,8 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// let db = DB::open("my.db")?;
+    /// use jammdb::memfile::{FileOpenOptions, Mmap};
+    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
     /// let mut tx = db.tx(false)?;
     ///
     /// // get a root-level bucket
@@ -228,7 +236,8 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// let db = DB::open("my.db")?;
+    /// use jammdb::memfile::{FileOpenOptions, Mmap};
+    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
     /// let mut tx = db.tx(true)?;
     ///
     /// // create a root-level bucket
@@ -272,7 +281,8 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// let db = DB::open("my.db")?;
+    /// use jammdb::memfile::{FileOpenOptions, Mmap};
+    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
     /// {
     ///     let mut tx = db.tx(true)?;
     ///     // create a root-level bucket
@@ -319,7 +329,8 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// let db = DB::open("my.db")?;
+    /// use jammdb::memfile::{FileOpenOptions, Mmap};
+    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
     /// let mut tx = db.tx(true)?;
     ///
     /// // get a root-level bucket
@@ -354,7 +365,8 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// let db = DB::open("my.db")?;
+    /// use jammdb::memfile::{FileOpenOptions, Mmap};
+    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
     /// let mut tx = db.tx(false)?;
     ///
     /// let bucket = tx.get_bucket("my-bucket")?;
@@ -391,7 +403,8 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// let db = DB::open("my.db")?;
+    /// use jammdb::memfile::{FileOpenOptions, Mmap};
+    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
     /// let mut tx = db.tx(true)?;
     ///
     /// // create a root-level bucket
@@ -424,16 +437,35 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     }
 
     /// Iterator over the sub-buckets in this bucket.
-    pub fn buckets<'a>(&'a self) -> Buckets<'b, 'tx> {
-        Buckets { c: self.cursor() }
+    pub fn buckets<'a>(&'a self) -> impl Iterator<Item = (BucketName<'b, 'tx>, Bucket<'b, 'tx>)> {
+        self.cursor().to_buckets()
     }
 
     /// Iterator over the key / value pairs in this bucket.
-    pub fn kv_pairs<'a>(&'a self) -> KVPairs<'b, 'tx> {
-        KVPairs { c: self.cursor() }
+    pub fn kv_pairs<'a>(&'a self) -> impl Iterator<Item = KVPair<'b, 'tx>> {
+        self.cursor().to_kv_pairs()
+    }
+    pub fn range<'a, R>(&'a self, r: R) -> Range<'a, 'b, 'tx, R>
+    where
+        R: RangeBounds<&'a [u8]>,
+    {
+        Range {
+            c: self.cursor(),
+            bounds: r,
+            _phantom: PhantomData,
+        }
     }
 }
 
+// and we'll implement IntoIterator
+impl<'b, 'tx> IntoIterator for Bucket<'b, 'tx> {
+    type Item = Data<'b, 'tx>;
+    type IntoIter = Cursor<'b, 'tx>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.cursor()
+    }
+}
 pub(crate) struct InnerBucket<'b> {
     pub(crate) meta: BucketMeta,
     root: PageNodeID,
@@ -492,8 +524,7 @@ impl<'b> InnerBucket<'b> {
     pub(crate) fn add_page_parent(&mut self, page: PageID, parent: PageID) {
         debug_assert!(
             self.meta.root_page == parent || self.page_parents.contains_key(&parent),
-            "cannot find reference to parent page ID \"{}\"",
-            parent
+            "cannot find reference to parent page ID \"{parent}\""
         );
         self.page_parents.insert(page, parent);
     }
@@ -728,8 +759,7 @@ impl<'b> InnerBucket<'b> {
                 }
                 debug_assert!(
                     self.meta.root_page == page_id || self.page_parents.contains_key(&page_id),
-                    "cannot find reference to page ID \"{}\"",
-                    page_id,
+                    "cannot find reference to page ID \"{page_id}\""
                 );
                 let node_id = self.nodes.len() as u64;
                 self.page_node_ids.insert(page_id, node_id);
@@ -942,7 +972,7 @@ impl<'b> InnerBucket<'b> {
     }
 }
 
-pub const META_SIZE: usize = std::mem::size_of::<BucketMeta>();
+pub const META_SIZE: usize = core::mem::size_of::<BucketMeta>();
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -955,7 +985,7 @@ impl AsRef<[u8]> for BucketMeta {
     #[inline]
     fn as_ref(&self) -> &[u8] {
         let ptr = self as *const BucketMeta as *const u8;
-        unsafe { std::slice::from_raw_parts(ptr, META_SIZE) }
+        unsafe { core::slice::from_raw_parts(ptr, META_SIZE) }
     }
 }
 
@@ -969,9 +999,9 @@ impl From<&[u8]> for BucketMeta {
 #[cfg(test)]
 mod tests {
 
-    use crate::{testutil::RandomFile, DB};
-
     use super::*;
+    use crate::memfile::{FileOpenOptions, Mmap};
+    use crate::{testutil::RandomFile, DB};
 
     #[test]
     fn bytes() {
@@ -990,7 +1020,7 @@ mod tests {
             #[should_panic(expected = $expected_err)]
     		fn $name() {
                 let random_file = RandomFile::new();
-                let db = DB::open(&random_file).unwrap();
+                let db = DB::<Mmap>::open::<FileOpenOptions,_>(&random_file).unwrap();
                 let tx = db.tx(true).unwrap();
                 let b = tx.create_bucket("abc").unwrap();
                 tx.delete_bucket("abc").unwrap();
@@ -1032,10 +1062,10 @@ mod tests {
             b.cursor();
         })
         deleted_bucket_buckets: ("Cannot create cursor from a deleted bucket.", |b: &Bucket| {
-            b.buckets();
+            let _ = b.buckets();
         })
         deleted_bucket_kv_pairs: ("Cannot create cursor from a deleted bucket.", |b: &Bucket| {
-            b.kv_pairs();
+           let _ = b.kv_pairs();
         })
     }
 
@@ -1045,7 +1075,7 @@ mod tests {
     		#[test]
     		fn $name() -> Result<()> {
                 let random_file = RandomFile::new();
-                let db = DB::open(&random_file)?;
+                let db = DB::<Mmap>::open::<FileOpenOptions,_>(&random_file)?;
                 {
 
                     let tx = db.tx(true)?;
@@ -1121,5 +1151,56 @@ mod tests {
             }
             assert!(b.get_kv("abc").is_none())
         })
+    }
+
+    #[test]
+    fn test_range() -> Result<()> {
+        let random_file = RandomFile::new();
+        let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file)?;
+        {
+            let tx = db.tx(true)?;
+            let b = tx.create_bucket("abc")?;
+            b.put("a", "1")?;
+            b.put("b", "2")?;
+            b.put("c", "3")?;
+            b.put("d", "4")?;
+            b.put("e", "5")?;
+            b.put("f", "6")?;
+            tx.commit()?;
+        }
+        macro_rules! iter_test {
+            ($range:expr, $keys:expr) => {
+                let tx = db.tx(false)?;
+                let b = tx.get_bucket("abc")?;
+                let mut bucket_iter = b.range($range);
+                for k in $keys {
+                    let k = k.as_bytes();
+                    let data = bucket_iter.next();
+                    assert!(data.is_some());
+                    assert!(data.unwrap().key() == k);
+                }
+                assert!(bucket_iter.next().is_none());
+            };
+        }
+        let a = "a".as_bytes();
+        let aa = "aa".as_bytes();
+        let b = "b".as_bytes();
+        let d = "d".as_bytes();
+        let e = "e".as_bytes();
+
+        iter_test!(a..e, ["a", "b", "c", "d"]);
+        iter_test!(aa..e, ["b", "c", "d"]);
+        iter_test!(b..e, ["b", "c", "d"]);
+        iter_test!(a..=d, ["a", "b", "c", "d"]);
+        iter_test!(b..=e, ["b", "c", "d", "e"]);
+        iter_test!(b.., ["b", "c", "d", "e", "f"]);
+        iter_test!(a.., ["a", "b", "c", "d", "e", "f"]);
+        iter_test!(d..e, ["d"]);
+        iter_test!(d..=e, ["d", "e"]);
+        iter_test!(..=e, ["a", "b", "c", "d", "e"]);
+        iter_test!(..e, ["a", "b", "c", "d"]);
+        iter_test!(.., ["a", "b", "c", "d", "e", "f"]);
+
+        Ok(())
     }
 }

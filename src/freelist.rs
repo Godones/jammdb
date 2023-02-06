@@ -1,5 +1,6 @@
-use core::alloc::Layout;
 use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::vec::Vec;
+use core::alloc::Layout;
 use core::mem::size_of;
 use core::ptr::NonNull;
 
@@ -172,7 +173,9 @@ impl Freelist {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::memfile::{FileOpenOptions, Mmap};
     use crate::{errors::Result, testutil::RandomFile, OpenOptions};
+    use alloc::vec;
 
     fn freelist_from_vec(v: Vec<PageID>) -> Freelist {
         let mut freelist = Freelist {
@@ -278,7 +281,7 @@ mod tests {
         let db = OpenOptions::new()
             .pagesize(1024)
             .num_pages(4)
-            .open(&random_file)?;
+            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
         let tx = db.tx(false)?;
         let tx = tx.inner.borrow_mut();
         let mut freelist = tx.freelist.borrow_mut();
@@ -313,7 +316,7 @@ mod tests {
         let db = OpenOptions::new()
             .pagesize(1024)
             .num_pages(100)
-            .open(&random_file)?;
+            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
         let tx = db.tx(false)?;
         let tx = tx.inner.borrow_mut();
         let mut freelist = tx.freelist.borrow_mut();
@@ -352,7 +355,7 @@ mod tests {
         let db = OpenOptions::new()
             .pagesize(1024)
             .num_pages(100)
-            .open(&random_file)?;
+            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
         let tx = db.tx(false)?;
         let tx = tx.inner.borrow_mut();
         let mut freelist = tx.freelist.borrow_mut();

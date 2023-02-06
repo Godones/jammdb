@@ -1,12 +1,9 @@
 use bytes::{BufMut, Bytes, BytesMut};
-use jammdb::{Bucket, Error, OpenOptions, Tx};
+use jammdb::{Bucket, Error, File, MemoryMap, OpenOption, OpenOptions, PathLike, Tx};
 use rand::{distributions::Alphanumeric, prelude::*};
-use std::{
-    collections::BTreeMap,
-    fs::File,
-    io::{BufRead, BufReader, Write},
-    path::Path,
-};
+use std::collections::BTreeMap;
+use std::io::BufReader;
+use std::io::{BufRead, Write};
 
 pub struct SizeParams {
     pub min: usize,
@@ -38,7 +35,7 @@ impl TestDetails {
         let db = OpenOptions::new()
             .pagesize(self.page_size as u64)
             .strict_mode(true)
-            .open(&random_file)?;
+            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
 
         let mut instructions = Instructions::new(self.name)?;
 
@@ -243,6 +240,7 @@ fn rand_bytes(size: usize) -> Bytes {
     w.into_inner().freeze()
 }
 
+use jammdb::memfile::{FileOpenOptions, Mmap};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
@@ -258,13 +256,13 @@ enum Instruction {
 
 struct Instructions {
     i: Vec<Instruction>,
-    f: Option<std::fs::File>,
+    f: Option<File>,
     path: Option<String>,
     delete: bool,
 }
 
 impl Instructions {
-    pub fn new(name: &str) -> Result<Instructions, std::io::Error> {
+    pub fn new(name: &str) -> Result<Instructions, core2::io::Error> {
         let record = match std::env::var("RECORD") {
             Ok(v) => v.as_str() == "true",
             Err(_) => false,
@@ -283,14 +281,15 @@ impl Instructions {
                 .unwrap()
                 .into();
                 let proposed = format!("{}_{}.log", name, suffix);
-
-                if !Path::new(&proposed).exists() {
+                let path = proposed.as_str();
+                if !path.exists() {
                     filename = Some(proposed);
                 }
             }
             let path = filename.as_ref().unwrap();
             println!("Recoding instructions to {}", path);
-            Some(std::fs::File::create(path)?)
+            let file = FileOpenOptions::new().open(&path)?;
+            Some(file)
         } else {
             None
         };
@@ -320,22 +319,37 @@ impl Drop for Instructions {
     fn drop(&mut self) {
         if self.delete && self.path.is_some() {
             self.f = None;
-            let _ = std::fs::remove_file(self.path.as_ref().unwrap());
+            // let _ = std::fs::remove_file(self.path.as_ref().unwrap());
+        }
+    }
+}
+
+struct FFile(File);
+
+impl std::io::Read for FFile {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let res = self.0.read(buf);
+        match res {
+            Ok(d) => Ok(d),
+            Err(_e) => Err(std::io::Error::new(std::io::ErrorKind::Other, "test")),
         }
     }
 }
 
 pub fn log_playback(name: &str) -> Result<(), Error> {
-    let log = BufReader::new(File::open(name)?);
+    let file = FileOpenOptions::new().create(true).open(&name)?;
+    let ffile = FFile(file);
+    let log = BufReader::new(ffile);
     let mut instructions: Vec<Instruction> = Vec::new();
     for line in log.lines() {
-        let line = line?;
+        let line = line.unwrap();
         instructions.push(serde_json::from_str(line.as_str()).unwrap());
     }
-
     let random_file = super::RandomFile::new();
 
-    let db = OpenOptions::new().pagesize(1024).open(&random_file)?;
+    let db = OpenOptions::new()
+        .pagesize(1024)
+        .open::<_, FileOpenOptions, Mmap>(&random_file)?;
     let mut root: FakeNode = FakeNode::Bucket(BTreeMap::new());
     // let mut data_b: &mut FakeNode = &mut data;
 
@@ -415,14 +429,15 @@ pub fn log_playback(name: &str) -> Result<(), Error> {
     Ok(())
 }
 
-fn mutate_buckets<'tx, F>(
-    tx: &Tx<'tx>,
+fn mutate_buckets<'tx, F, M>(
+    tx: &Tx<'tx, M>,
     root: &mut FakeNode,
     path: &Vec<Bytes>,
     f: F,
 ) -> Result<(), Error>
 where
     F: Fn(&Bucket, &mut BTreeMap<Bytes, FakeNode>) -> Result<(), Error>,
+    M: MemoryMap + 'static,
 {
     assert!(!path.is_empty());
     let mut b = tx.get_or_create_bucket(&path[0])?;

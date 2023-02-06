@@ -29,9 +29,10 @@
 //! use jammdb::{DB, Data, Error};
 //!
 //! fn main() -> Result<(), Error> {
+//! use jammdb::memfile::{FileOpenOptions, Mmap};
 //! {
 //!     // open a new database file
-//!     let db = DB::open("my-database.db")?;
+//!     let db =  DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
 //!
 //!     // open a writable transaction so we can make changes
 //!     let mut tx = db.tx(true)?;
@@ -46,7 +47,7 @@
 //! }
 //! {
 //!     // open the existing database file
-//!     let db = DB::open("my-database.db")?;
+//!     let db =  DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
 //!     // open a read-only transaction to get the data
 //!     let mut tx = db.tx(true)?;
 //!     // get the bucket we created in the last transaction
@@ -74,13 +75,13 @@
 //! }
 //!
 //! fn main() -> Result<(), Error> {
-//!     let user = User{
+//!     use jammdb::memfile::{FileOpenOptions, Mmap};let user = User{
 //!         username: "my-user".to_string(),
 //!         password: "my-password".to_string(),
 //!     };
 //! {
 //!     // open a new database file and start a writable transaction
-//!     let db = DB::open("my-database.db")?;
+//!     let db = DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
 //!     let mut tx = db.tx(true)?;
 //!
 //!     // create a bucket to store users
@@ -95,7 +96,7 @@
 //! }
 //! {
 //!     // open the existing database file
-//!     let db = DB::open("my-database.db")?;
+//!     let db =  DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
 //!     // open a read-only transaction to get the data
 //!     let mut tx = db.tx(true)?;
 //!     // get the bucket we created in the last transaction
@@ -108,9 +109,9 @@
 //!     }
 //! }
 //!     Ok(())
-//! }
-//!
+//! }//
 #![feature(error_in_core)]
+#![no_std]
 #[allow(clippy::mutable_key_type)]
 mod bucket;
 mod bytes;
@@ -119,6 +120,7 @@ mod data;
 mod db;
 mod errors;
 mod freelist;
+mod fs;
 mod lifetimes;
 mod meta;
 mod node;
@@ -126,29 +128,41 @@ mod page;
 mod page_node;
 mod tx;
 extern crate alloc;
+#[cfg(test)]
+extern crate std;
+#[macro_use]
+extern crate logger;
 
 pub use crate::bytes::ToBytes;
 pub use bucket::Bucket;
-pub use cursor::{Buckets, Cursor, KVPairs};
+pub use cursor::{Buckets, Cursor, KVPairs, ToBuckets, ToKVPairs};
 pub use data::*;
 pub use db::{OpenOptions, DB};
 pub use errors::*;
+pub use fs::memfile;
+pub use fs::*;
+pub use node::test_split;
 pub use tx::Tx;
 
 #[cfg(test)]
-///
-/// ```
-/// let a: u64 = 0_i32;
-/// ```
-///
 mod testutil {
-    use std::io::Write;
-
+    use crate::fs::PathLike;
+    use crate::std::io::Write;
     use bytes::{BufMut, Bytes, BytesMut};
-    use rand::{distributions::Alphanumeric, Rng};
-
+    use core::fmt::{Display, Formatter};
+    use rand::distributions::Alphanumeric;
+    use rand::Rng;
+    use std::string::String;
+    use std::vec::Vec;
+    #[derive(Debug)]
     pub struct RandomFile {
-        pub path: std::path::PathBuf,
+        pub path: String,
+    }
+
+    impl Display for RandomFile {
+        fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+            write!(f, "{}", self.path)
+        }
     }
 
     impl RandomFile {
@@ -163,26 +177,32 @@ mod testutil {
                 )
                 .unwrap()
                 .into();
-                let path = std::env::temp_dir().join(filename);
-                if !path.exists() {
-                    return RandomFile { path };
+                let path = std::env::temp_dir().join(filename.clone());
+                if path.metadata().is_err() {
+                    return RandomFile { path: filename };
                 }
             }
         }
     }
 
-    impl AsRef<std::path::Path> for RandomFile {
-        fn as_ref(&self) -> &std::path::Path {
-            self.path.as_ref()
+    impl PathLike for RandomFile {
+        fn exists(&self) -> bool {
+            let x = &self.path;
+            x.exists()
+        }
+    }
+
+    impl PathLike for &RandomFile {
+        fn exists(&self) -> bool {
+            let x = &self.path;
+            x.exists()
         }
     }
 
     impl Drop for RandomFile {
-        fn drop(&mut self) {
-            let _ = std::fs::remove_file(&self.path);
-        }
+        #[allow(unused_must_use)]
+        fn drop(&mut self) {}
     }
-
     pub fn rand_bytes(size: usize) -> Bytes {
         let buf = BytesMut::new();
         let mut w = buf.writer();
@@ -190,7 +210,6 @@ mod testutil {
             let _ = write!(&mut w, "{}", byte);
             // let _ = w.write(&[byte]);
         }
-
         w.into_inner().freeze()
     }
 }

@@ -1,5 +1,3 @@
-use core::{cell::RefCell, marker::PhantomData};
-use alloc::rc::Rc;
 use crate::{
     bucket::{Bucket, InnerBucket},
     data::Data,
@@ -7,6 +5,13 @@ use crate::{
     page::PageID,
     page_node::PageNodeID,
     BucketName, KVPair,
+};
+use alloc::rc::Rc;
+use alloc::vec::Vec;
+use core::{
+    cell::RefCell,
+    marker::PhantomData,
+    ops::{Bound, RangeBounds},
 };
 
 /// An iterator over a bucket
@@ -27,7 +32,8 @@ use crate::{
 /// # use jammdb::Error;
 ///
 /// # fn main() -> Result<(), Error> {
-/// let db = DB::open("my.db")?;
+/// use jammdb::memfile::{FileOpenOptions, Mmap};
+/// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;;
 /// let mut tx = db.tx(false)?;
 /// let bucket = tx.get_bucket("my-bucket")?;
 ///
@@ -194,25 +200,85 @@ impl<'b, 'tx> Iterator for Cursor<'b, 'tx> {
         self.current()
     }
 }
-
-/// An iterator over a bucket's sub-buckets.
-pub struct Buckets<'b, 'tx> {
+/// A bounded iterator over the data in a bucket.
+pub struct Range<'r, 'b, 'tx, R>
+where
+    R: RangeBounds<&'r [u8]>,
+{
     pub(crate) c: Cursor<'b, 'tx>,
+    pub(crate) bounds: R,
+    pub(crate) _phantom: PhantomData<&'r ()>,
 }
 
-impl<'b, 'tx: 'b> Iterator for Buckets<'b, 'tx> {
+impl<'r, 'b, 'tx, R> Iterator for Range<'r, 'b, 'tx, R>
+where
+    R: RangeBounds<&'r [u8]>,
+{
+    type Item = Data<'b, 'tx>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if !self.c.next_called {
+            if let Bound::Included(s) = self.bounds.start_bound() {
+                let exists = self.c.seek(*s);
+                // if the start key is not there,
+                // skip to the key after where it should be.
+                if !exists {
+                    if let Some(data) = self.c.current() {
+                        if data.key() < *s {
+                            self.c.next();
+                        }
+                    }
+                }
+            }
+        }
+        let next = self.c.next();
+        match next {
+            Some(data) => match self.bounds.end_bound() {
+                Bound::Excluded(e) => {
+                    if data.key() < *e {
+                        Some(data)
+                    } else {
+                        None
+                    }
+                }
+                Bound::Included(e) => {
+                    if data.key() <= *e {
+                        Some(data)
+                    } else {
+                        None
+                    }
+                }
+                Bound::Unbounded => Some(data),
+            },
+            None => None,
+        }
+    }
+}
+/// An iterator over a bucket's sub-buckets.
+pub struct Buckets<'b, 'tx, I> {
+    pub(crate) i: I,
+    pub(crate) bucket: Rc<RefCell<InnerBucket<'tx>>>,
+    pub(crate) freelist: Rc<RefCell<TxFreelist>>,
+    pub(crate) writable: bool,
+    pub(crate) _phantom: PhantomData<&'b ()>,
+}
+
+impl<'b, 'tx: 'b, I> Iterator for Buckets<'b, 'tx, I>
+where
+    I: Iterator<Item = Data<'b, 'tx>>,
+{
     type Item = (BucketName<'b, 'tx>, Bucket<'b, 'tx>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        for data in self.c.by_ref() {
+        for data in self.i.by_ref() {
             if let Data::Bucket(bucket_data) = data {
-                let mut b = self.c.bucket.borrow_mut();
+                let mut b = self.bucket.borrow_mut();
                 if let Ok(r) = b.get_bucket(&bucket_data) {
                     return Some((
                         bucket_data,
                         Bucket {
-                            writable: self.c.writable,
-                            freelist: self.c.freelist.clone(),
+                            writable: self.writable,
+                            freelist: self.freelist.clone(),
                             inner: r,
                             _phantom: PhantomData,
                         },
@@ -225,17 +291,56 @@ impl<'b, 'tx: 'b> Iterator for Buckets<'b, 'tx> {
         None
     }
 }
-
-/// An iterator over a bucket's key / value pairs.
-pub struct KVPairs<'b, 'tx> {
-    pub(crate) c: Cursor<'b, 'tx>,
+pub trait ToBuckets<'b, 'tx: 'b>: Iterator<Item = Data<'b, 'tx>> + Sized {
+    fn to_buckets(self) -> Buckets<'b, 'tx, Self>;
 }
 
-impl<'b, 'tx> Iterator for KVPairs<'b, 'tx> {
+impl<'b, 'tx: 'b> ToBuckets<'b, 'tx> for Cursor<'b, 'tx> {
+    fn to_buckets(self) -> Buckets<'b, 'tx, Self> {
+        let freelist = self.freelist.clone();
+        let bucket = self.bucket.clone();
+        let writable = self.writable;
+        Buckets {
+            i: self,
+            bucket,
+            freelist,
+            writable,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<'r, 'b, 'tx: 'b, R> ToBuckets<'b, 'tx> for Range<'r, 'b, 'tx, R>
+where
+    R: RangeBounds<&'r [u8]>,
+{
+    fn to_buckets(self) -> Buckets<'b, 'tx, Self> {
+        let freelist = self.c.freelist.clone();
+        let bucket = self.c.bucket.clone();
+        let writable = self.c.writable;
+        Buckets {
+            i: self,
+            bucket,
+            freelist,
+            writable,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+/// An iterator over a bucket's key / value pairs.
+pub struct KVPairs<I> {
+    pub(crate) i: I,
+}
+
+impl<'b, 'tx, I> Iterator for KVPairs<I>
+where
+    I: Iterator<Item = Data<'b, 'tx>>,
+{
     type Item = KVPair<'b, 'tx>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        for data in self.c.by_ref() {
+        for data in self.i.by_ref() {
             if let Data::KeyValue(kv) = data {
                 return Some(kv);
             }
@@ -243,17 +348,36 @@ impl<'b, 'tx> Iterator for KVPairs<'b, 'tx> {
         None
     }
 }
+pub trait ToKVPairs<'b, 'tx>: Iterator<Item = Data<'b, 'tx>> + Sized {
+    fn to_kv_pairs(self) -> KVPairs<Self>;
+}
+
+impl<'b, 'tx> ToKVPairs<'b, 'tx> for Cursor<'b, 'tx> {
+    fn to_kv_pairs(self) -> KVPairs<Self> {
+        KVPairs { i: self }
+    }
+}
+
+impl<'r, 'b, 'tx, R> ToKVPairs<'b, 'tx> for Range<'r, 'b, 'tx, R>
+where
+    R: RangeBounds<&'r [u8]>,
+{
+    fn to_kv_pairs(self) -> KVPairs<Self> {
+        KVPairs { i: self }
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use crate::db::DB;
     use crate::errors::Result;
+    use crate::memfile::{FileOpenOptions, Mmap};
     use crate::testutil::RandomFile;
 
     #[test]
     fn test_iters() -> Result<()> {
         let random_file = RandomFile::new();
-        let db = DB::open(&random_file)?;
+        let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file)?;
         // Put in some intermixed key / value pairs and sub-buckets.
         {
             let tx = db.tx(true)?;
@@ -314,7 +438,7 @@ mod tests {
     #[should_panic]
     fn deleted_bucket_create_cursor() {
         let random_file = RandomFile::new();
-        let db = DB::open(&random_file).unwrap();
+        let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file).unwrap();
         let tx = db.tx(true).unwrap();
         let b = tx.create_bucket("abc").unwrap();
         tx.delete_bucket("abc").unwrap();
@@ -326,7 +450,7 @@ mod tests {
     #[should_panic]
     fn deleted_bucket_create_iterate() {
         let random_file = RandomFile::new();
-        let db = DB::open(&random_file).unwrap();
+        let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file).unwrap();
         let tx = db.tx(true).unwrap();
         let b = tx.create_bucket("abc").unwrap();
         let mut c = b.cursor();

@@ -1,11 +1,8 @@
-use std::io::Write;
-use bytes::BufMut;
+use alloc::vec::Vec;
 use sha3::{Digest, Sha3_256};
 
 use crate::bucket::BucketMeta;
 use crate::page::PageID;
-
-// const META_SIZE: usize = size_of::<Meta>();
 
 #[repr(C)]
 #[derive(Debug, Clone)]
@@ -36,20 +33,31 @@ impl Meta {
         hash_result
     }
 
-    fn bytes(&self) -> bytes::Bytes {
-        let buf = bytes::BytesMut::new();
-        let mut w = buf.writer();
-        let _ = w.write(&self.meta_page.to_be_bytes());
-        let _ = w.write(&self.magic.to_be_bytes());
-        let _ = w.write(&self.version.to_be_bytes());
-        let _ = w.write(&self.pagesize.to_be_bytes());
-        let _ = w.write(&self.root.root_page.to_be_bytes());
-        let _ = w.write(&self.root.next_int.to_be_bytes());
-        let _ = w.write(&self.num_pages.to_be_bytes());
-        let _ = w.write(&self.freelist_page.to_be_bytes());
-        let _ = w.write(&self.tx_id.to_be_bytes());
-
-        w.into_inner().freeze()
+    fn bytes(&self) -> Vec<u8> {
+        // let buf = bytes::BytesMut::new();
+        // let mut w = buf.writer();
+        // let _ = w.write(&self.meta_page.to_be_bytes());
+        // let _ = w.write(&self.magic.to_be_bytes());
+        // let _ = w.write(&self.version.to_be_bytes());
+        // let _ = w.write(&self.pagesize.to_be_bytes());
+        // let _ = w.write(&self.root.root_page.to_be_bytes());
+        // let _ = w.write(&self.root.next_int.to_be_bytes());
+        // let _ = w.write(&self.num_pages.to_be_bytes());
+        // let _ = w.write(&self.freelist_page.to_be_bytes());
+        // let _ = w.write(&self.tx_id.to_be_bytes());
+        //
+        // w.into_inner().freeze()
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&self.meta_page.to_be_bytes());
+        buf.extend_from_slice(&self.magic.to_be_bytes());
+        buf.extend_from_slice(&self.version.to_be_bytes());
+        buf.extend_from_slice(&self.pagesize.to_be_bytes());
+        buf.extend_from_slice(&self.root.root_page.to_be_bytes());
+        buf.extend_from_slice(&self.root.next_int.to_be_bytes());
+        buf.extend_from_slice(&self.num_pages.to_be_bytes());
+        buf.extend_from_slice(&self.freelist_page.to_be_bytes());
+        buf.extend_from_slice(&self.tx_id.to_be_bytes());
+        buf
     }
 }
 
