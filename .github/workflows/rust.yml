@@ -34,7 +34,7 @@ jobs:
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable-x86_64-unknown-linux-gnu
+          toolchain: nightly-x86_64-unknown-linux-gnu
           components: llvm-tools-preview
 
       - name: Download grcov
@@ -70,7 +70,7 @@ jobs:
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable-${{ matrix.target }}
+          toolchain: nightly-${{ matrix.target }}
 
       - name: Run tests
         run: cargo test --verbose
@@ -84,7 +84,7 @@ jobs:
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable-x86_64-apple-darwin
+          toolchain: nightly-x86_64-apple-darwin
 
       - name: Run tests
         run: cargo test --verbose
@@ -103,7 +103,7 @@ jobs:
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable-${{ matrix.target }}
+          toolchain: nightly-${{ matrix.target }}
 
       - name: Install multilib
         if: ${{ matrix.target == 'i686-unknown-linux-gnu' }}
