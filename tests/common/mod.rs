@@ -6,7 +6,6 @@ use core::fmt::{Display, Formatter};
 use jammdb::PathLike;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
-
 use std::string::String;
 use std::vec::Vec;
 
@@ -58,10 +57,4 @@ impl PathLike for &RandomFile {
 impl Drop for RandomFile {
     #[allow(unused_must_use)]
     fn drop(&mut self) {}
-}
-pub fn rand_bytes(len: usize) -> Vec<u8> {
-    rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(len)
-        .collect::<Vec<u8>>()
 }

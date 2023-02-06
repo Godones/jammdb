@@ -21,6 +21,7 @@ impl File {
         Self { file }
     }
 }
+
 impl Deref for File {
     type Target = dyn DbFile;
     fn deref(&self) -> &Self::Target {

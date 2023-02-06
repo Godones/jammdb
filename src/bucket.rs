@@ -524,8 +524,7 @@ impl<'b> InnerBucket<'b> {
     pub(crate) fn add_page_parent(&mut self, page: PageID, parent: PageID) {
         debug_assert!(
             self.meta.root_page == parent || self.page_parents.contains_key(&parent),
-            "cannot find reference to parent page ID \"{}\"",
-            parent
+            "cannot find reference to parent page ID \"{parent}\""
         );
         self.page_parents.insert(page, parent);
     }
@@ -760,8 +759,7 @@ impl<'b> InnerBucket<'b> {
                 }
                 debug_assert!(
                     self.meta.root_page == page_id || self.page_parents.contains_key(&page_id),
-                    "cannot find reference to page ID \"{}\"",
-                    page_id,
+                    "cannot find reference to page ID \"{page_id}\""
                 );
                 let node_id = self.nodes.len() as u64;
                 self.page_node_ids.insert(page_id, node_id);
