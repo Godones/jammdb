@@ -564,28 +564,28 @@ mod test {
             {
                 // Since this bucket was just created, there should be one node.
                 let mut b = b.inner.borrow_mut();
-                assert!(b.nodes.len() == 1);
+                assert_eq!(b.nodes.len(), 1);
 
                 let tx_freelist = tx.inner.borrow().freelist.clone();
                 let mut tx_freelist = tx_freelist.borrow_mut();
                 b.spill(&mut tx_freelist)?;
                 // Since everything is spilled, there should be two key / value pairs to a list.
                 // That means we should have three leaf nodes and one branch node at the root.
-                assert!(b.nodes.len() == 4);
+                assert_eq!(b.nodes.len(), 4);
                 // Make sure the branch has the right data
                 let branch_node = &b.nodes[3];
                 let branch_node = branch_node.borrow();
                 if let NodeData::Branches(branches) = &branch_node.data {
-                    assert!(branches.len() == 3);
+                    assert_eq!(branches.len(), 3);
 
-                    assert!(branches[0].key() == b"a");
-                    assert!(branches[0].page == 7);
+                    assert_eq!(branches[0].key(), b"a");
+                    assert_eq!(branches[0].page, 7);
 
-                    assert!(branches[1].key() == b"c");
-                    assert!(branches[1].page == 10);
+                    assert_eq!(branches[1].key(), b"c");
+                    assert_eq!(branches[1].page, 10);
 
-                    assert!(branches[2].key() == b"e");
-                    assert!(branches[2].page == 13);
+                    assert_eq!(branches[2].key(), b"e");
+                    assert_eq!(branches[2].page, 13);
                 } else {
                     panic!("Node 3 should have been a branch node")
                 }
@@ -595,12 +595,12 @@ mod test {
                     .zip([["a", "b"], ["c", "d"], ["e", "f"]])
                 {
                     let n = n.borrow();
-                    assert!(n.data.len() == 2);
+                    assert_eq!(n.data.len(), 2);
                     match &n.data {
                         NodeData::Leaves(leaves) => {
                             for (kv, key) in leaves.iter().zip(keys) {
-                                assert!(kv.key() == key.as_bytes());
-                                assert!(kv.value() == data[key]);
+                                assert_eq!(kv.key(), key.as_bytes());
+                                assert_eq!(kv.value(), data[key]);
                             }
                         }
                         _ => panic!("Must be a leaf node"),
