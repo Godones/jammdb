@@ -63,8 +63,8 @@ impl PartialEq for Error {
 
 #[cfg(test)]
 mod tests {
-    use std::format;
     use super::*;
+    use std::format;
 
     #[test]
     fn test_error_display() {
@@ -86,7 +86,10 @@ mod tests {
         assert_eq!(
             format!(
                 "{}",
-                Error::Io(core2::io::Error::new(core2::io::ErrorKind::NotFound, "oopsie"))
+                Error::Io(core2::io::Error::new(
+                    core2::io::ErrorKind::NotFound,
+                    "oopsie"
+                ))
             ),
             "IO Error: oopsie"
         );

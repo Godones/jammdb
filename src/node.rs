@@ -1,14 +1,13 @@
+use crate::bucket::{BucketMeta, InnerBucket, META_SIZE};
+use crate::bytes::Bytes;
+use crate::errors::Result;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use core::cell::RefCell;
 use core::mem::size_of;
-use crate::bucket::{BucketMeta, InnerBucket, META_SIZE};
-use crate::bytes::Bytes;
-use crate::errors::Result;
 
 use crate::freelist::TxFreelist;
 use crate::page::{BranchElement, LeafElement, Page, PageID, PageType};
-
 pub(crate) type NodeID = u64;
 
 const HEADER_SIZE: u64 = size_of::<Page>() as u64;
@@ -613,12 +612,10 @@ mod test {
     }
 }
 
-
 pub fn test_split() -> Result<()> {
     use crate::db::OpenOptions;
-    use crate::memfile::{FileOpenOptions,Mmap};
+    use crate::memfile::{FileOpenOptions, Mmap};
     use hashbrown::HashMap;
-
 
     let db = OpenOptions::new()
         .pagesize(1024)
@@ -630,9 +627,8 @@ pub fn test_split() -> Result<()> {
         let mut data = HashMap::new();
         // Insert six nodes, each the size of a page.
         for key in ["a", "b", "c", "d", "e", "f"] {
-
             let mut value = Vec::new();
-            value.extend_from_slice(&[key.as_bytes()[0];512]);
+            value.extend_from_slice(&[key.as_bytes()[0]; 512]);
             b.put(key, value.clone())?;
             data.insert(key, value);
         }

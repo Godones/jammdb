@@ -32,7 +32,8 @@ use core::{
 /// # use jammdb::Error;
 ///
 /// # fn main() -> Result<(), Error> {
-/// let db = DB::open("my.db")?;
+/// use jammdb::memfile::{FileOpenOptions, Mmap};
+/// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;;
 /// let mut tx = db.tx(false)?;
 /// let bucket = tx.get_bucket("my-bucket")?;
 ///

@@ -29,9 +29,10 @@
 //! use jammdb::{DB, Data, Error};
 //!
 //! fn main() -> Result<(), Error> {
+//! use jammdb::memfile::{FileOpenOptions, Mmap};
 //! {
 //!     // open a new database file
-//!     let db = DB::open("my-database.db")?;
+//!     let db =  DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
 //!
 //!     // open a writable transaction so we can make changes
 //!     let mut tx = db.tx(true)?;
@@ -46,7 +47,7 @@
 //! }
 //! {
 //!     // open the existing database file
-//!     let db = DB::open("my-database.db")?;
+//!     let db =  DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
 //!     // open a read-only transaction to get the data
 //!     let mut tx = db.tx(true)?;
 //!     // get the bucket we created in the last transaction
@@ -74,13 +75,13 @@
 //! }
 //!
 //! fn main() -> Result<(), Error> {
-//!     let user = User{
+//!     use jammdb::memfile::{FileOpenOptions, Mmap};let user = User{
 //!         username: "my-user".to_string(),
 //!         password: "my-password".to_string(),
 //!     };
 //! {
 //!     // open a new database file and start a writable transaction
-//!     let db = DB::open("my-database.db")?;
+//!     let db = DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
 //!     let mut tx = db.tx(true)?;
 //!
 //!     // create a bucket to store users
@@ -95,7 +96,7 @@
 //! }
 //! {
 //!     // open the existing database file
-//!     let db = DB::open("my-database.db")?;
+//!     let db =  DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
 //!     // open a read-only transaction to get the data
 //!     let mut tx = db.tx(true)?;
 //!     // get the bucket we created in the last transaction
@@ -108,8 +109,7 @@
 //!     }
 //! }
 //!     Ok(())
-//! }
-//!
+//! }//
 #![feature(error_in_core)]
 #![no_std]
 #[allow(clippy::mutable_key_type)]
@@ -141,20 +141,19 @@ pub use db::{OpenOptions, DB};
 pub use errors::*;
 pub use fs::memfile;
 pub use fs::*;
-pub use tx::Tx;
 pub use node::test_split;
+pub use tx::Tx;
 
 #[cfg(test)]
 mod testutil {
-    use crate::fs::{MetaData, PathLike};
+    use crate::fs::PathLike;
+    use crate::std::io::Write;
+    use bytes::{BufMut, Bytes, BytesMut};
     use core::fmt::{Display, Formatter};
     use rand::distributions::Alphanumeric;
     use rand::Rng;
-    use std::ops::Deref;
     use std::string::String;
     use std::vec::Vec;
-    use bytes::{BufMut, Bytes, BytesMut};
-
     #[derive(Debug)]
     pub struct RandomFile {
         pub path: String,
@@ -211,7 +210,6 @@ mod testutil {
             let _ = write!(&mut w, "{}", byte);
             // let _ = w.write(&[byte]);
         }
-
         w.into_inner().freeze()
     }
 }

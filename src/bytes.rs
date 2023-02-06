@@ -1,10 +1,10 @@
+use alloc::rc::Rc;
+use alloc::string::String;
+use alloc::vec::Vec;
 use core::{
     cmp::Ordering,
     hash::{Hash, Hasher},
 };
-use alloc::rc::Rc;
-use alloc::vec::Vec;
-use alloc::string::String;
 
 pub trait ToBytes<'a> {
     fn to_bytes(self) -> Bytes<'a>;

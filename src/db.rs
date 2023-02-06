@@ -34,10 +34,11 @@ const DEFAULT_NUM_PAGES: usize = 32;
 /// # use jammdb::Error;
 ///
 /// # fn main() -> Result<(), Error> {
+/// use jammdb::memfile::{FileOpenOptions, Mmap};
 /// let db = OpenOptions::new()
 ///     .pagesize(4096)
 ///     .num_pages(32)
-///     .open("my.db")?;
+///     .open::<_,FileOpenOptions,Mmap>("my.db")?;
 ///
 /// // do whatever you want with the DB
 /// # Ok(())
@@ -166,7 +167,8 @@ impl<M: MemoryMap + 'static> DB<M> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// let db = DB::open("my.db")?;
+    /// use jammdb::memfile::{FileOpenOptions, Mmap};
+    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
     ///
     /// // do whatever you want with the DB
     /// # Ok(())

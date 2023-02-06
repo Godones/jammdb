@@ -1,6 +1,6 @@
 use jammdb::memfile::{FileOpenOptions, Mmap};
-use jammdb::{Data, Error, OpenOptions, DB};
-use std::collections::HashMap;
+use jammdb::{Error, DB};
+
 use logger::init_logger;
 
 fn main() -> Result<(), Error> {

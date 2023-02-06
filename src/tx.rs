@@ -7,7 +7,18 @@ use core2::io::SeekFrom;
 use hashbrown::HashSet;
 use spin::{MutexGuard, RwLockReadGuard};
 
-use crate::{bucket::{Bucket, BucketMeta, InnerBucket}, BucketName, bytes::ToBytes, cursor::ToBuckets, db::{DB, MIN_ALLOC_SIZE}, errors::{Error, Result}, freelist::TxFreelist, meta::Meta, node::Node, page::{Page, PageID, Pages}};
+use crate::{
+    bucket::{Bucket, BucketMeta, InnerBucket},
+    bytes::ToBytes,
+    cursor::ToBuckets,
+    db::{DB, MIN_ALLOC_SIZE},
+    errors::{Error, Result},
+    freelist::TxFreelist,
+    meta::Meta,
+    node::Node,
+    page::{Page, PageID, Pages},
+    BucketName,
+};
 
 pub(crate) enum TxLock<'tx> {
     Rw(MutexGuard<'tx, File>),
@@ -47,7 +58,8 @@ impl<'tx> TxLock<'tx> {
 /// # use jammdb::Error;
 ///
 /// # fn main() -> Result<(), Error> {
-/// # let db = DB::open("my.db")?;
+/// # use jammdb::memfile::{FileOpenOptions, Mmap};
+/// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
 /// // create a read-only transaction
 /// let mut tx1 = db.tx(false)?;
 /// // create a writable transcation

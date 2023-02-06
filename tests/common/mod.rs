@@ -6,7 +6,7 @@ use core::fmt::{Display, Formatter};
 use jammdb::PathLike;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
-use std::ops::Deref;
+
 use std::string::String;
 use std::vec::Vec;
 

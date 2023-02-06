@@ -41,7 +41,8 @@ use crate::{
 /// # use jammdb::Error;
 ///
 /// # fn main() -> Result<(), Error> {
-/// let db = DB::open("my.db")?;
+/// use jammdb::memfile::{FileOpenOptions, Mmap};
+/// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
 /// let mut tx = db.tx(true)?;
 ///
 /// // create a root-level bucket
@@ -90,7 +91,8 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// let db = DB::open("my.db")?;
+    /// use jammdb::memfile::{FileOpenOptions, Mmap};
+    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
     /// let mut tx = db.tx(true)?;
     ///
     /// // create a root-level bucket
@@ -152,7 +154,8 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// let db = DB::open("my.db")?;
+    /// use jammdb::memfile::{FileOpenOptions, Mmap};
+    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
     /// let mut tx = db.tx(false)?;
     ///
     /// let bucket = tx.get_bucket("my-bucket")?;
@@ -190,7 +193,8 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// let db = DB::open("my.db")?;
+    /// use jammdb::memfile::{FileOpenOptions, Mmap};
+    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
     /// let mut tx = db.tx(false)?;
     ///
     /// // get a root-level bucket
@@ -232,7 +236,8 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// let db = DB::open("my.db")?;
+    /// use jammdb::memfile::{FileOpenOptions, Mmap};
+    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
     /// let mut tx = db.tx(true)?;
     ///
     /// // create a root-level bucket
@@ -276,7 +281,8 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// let db = DB::open("my.db")?;
+    /// use jammdb::memfile::{FileOpenOptions, Mmap};
+    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
     /// {
     ///     let mut tx = db.tx(true)?;
     ///     // create a root-level bucket
@@ -323,7 +329,8 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// let db = DB::open("my.db")?;
+    /// use jammdb::memfile::{FileOpenOptions, Mmap};
+    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
     /// let mut tx = db.tx(true)?;
     ///
     /// // get a root-level bucket
@@ -358,7 +365,8 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// let db = DB::open("my.db")?;
+    /// use jammdb::memfile::{FileOpenOptions, Mmap};
+    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
     /// let mut tx = db.tx(false)?;
     ///
     /// let bucket = tx.get_bucket("my-bucket")?;
@@ -395,7 +403,8 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// let db = DB::open("my.db")?;
+    /// use jammdb::memfile::{FileOpenOptions, Mmap};
+    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
     /// let mut tx = db.tx(true)?;
     ///
     /// // create a root-level bucket
@@ -1149,7 +1158,7 @@ mod tests {
     #[test]
     fn test_range() -> Result<()> {
         let random_file = RandomFile::new();
-        let db = DB::<Mmap>::open::<FileOpenOptions,_>(&random_file)?;
+        let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file)?;
         {
             let tx = db.tx(true)?;
             let b = tx.create_bucket("abc")?;
