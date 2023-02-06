@@ -1,12 +1,13 @@
-use std::{cell::RefCell, mem::size_of, rc::Rc};
+use core::cell::RefCell;
+use core::mem::size_of;
+use alloc::rc::Rc;
 
-use crate::{
-    bucket::{BucketMeta, InnerBucket, META_SIZE},
-    bytes::Bytes,
-    errors::Result,
-    freelist::TxFreelist,
-    page::{BranchElement, LeafElement, Page, PageID, PageType},
-};
+use crate::bucket::{BucketMeta, InnerBucket, META_SIZE};
+use crate::bytes::Bytes;
+use crate::errors::Result;
+
+use crate::freelist::TxFreelist;
+use crate::page::{BranchElement, LeafElement, Page, PageID, PageType};
 
 pub(crate) type NodeID = u64;
 
@@ -537,11 +538,12 @@ impl<'n> Node<'n> {
 mod test {
     use std::collections::HashMap;
 
-    use super::*;
     use crate::{
         testutil::{rand_bytes, RandomFile},
         OpenOptions,
     };
+
+    use super::*;
 
     #[test]
     fn test_split() -> Result<()> {

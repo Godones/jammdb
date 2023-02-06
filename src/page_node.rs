@@ -1,5 +1,5 @@
-use std::{cell::RefCell, rc::Rc};
-
+use core::{cell::RefCell};
+use alloc::rc::Rc;
 use crate::{
     node::{Leaf, Node, NodeData, NodeID},
     page::{Page, PageID},

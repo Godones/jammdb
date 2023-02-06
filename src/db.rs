@@ -1,23 +1,22 @@
-#[cfg(unix)]
-use std::os::unix::fs::OpenOptionsExt;
+use memmap2::Mmap;
 use std::{
     fs::{File, OpenOptions as FileOpenOptions},
-    io::Write,
     path::Path,
-    sync::{Arc, Mutex, RwLock},
 };
+use alloc::sync::Arc;
+use std::io::Write;
+use spin::{Mutex,RwLock};
 
+use crate::{bucket::BucketMeta, errors::Result, page::Page, tx::Tx};
+use crate::{freelist::Freelist, meta::Meta};
 use fs2::FileExt;
-use memmap2::Mmap;
-use page_size::get as get_page_size;
-
-use crate::{
-    bucket::BucketMeta, errors::Result, freelist::Freelist, meta::Meta, page::Page, tx::Tx,
-};
 
 const MAGIC_VALUE: u32 = 0x00AB_CDEF;
 const VERSION: u32 = 1;
 
+const fn get_page_size()->usize{
+    4096
+}
 // Minimum number of bytes to allocate when growing the databse
 pub(crate) const MIN_ALLOC_SIZE: u64 = 8 * 1024 * 1024;
 
@@ -48,7 +47,7 @@ const DEFAULT_NUM_PAGES: usize = 32;
 pub struct OpenOptions {
     pagesize: u64,
     num_pages: usize,
-    flags: DBFlags,
+    strict_mode: bool,
 }
 
 impl OpenOptions {
@@ -88,35 +87,12 @@ impl OpenOptions {
         self
     }
 
-    /// Enables or disables "Strict Mode", where each transaction will check the database for errors before finalizing a write.
+    /// Enables or disabled "Strict Mode", where each transaction will check the database for errors before finalizing a write.
     ///
     /// The default is `false`, but you may enable this if you want an extra degree of safety for your data at the cost of
     /// slower writes.
     pub fn strict_mode(mut self, strict_mode: bool) -> Self {
-        self.flags.strict_mode = strict_mode;
-        self
-    }
-
-    /// Enables or disables the [MAP_POPULATE flag](MAP_POPULATE) for the `mmap` call, which will cause Linux to eagerly load pages into memory.
-    ///
-    /// The default is `false`, but you may enable this if your database file will stay smaller than your available memory.
-    /// It is not recommended to enable this unless you know what you are doing.
-    ///
-    /// This setting only works on Linux, and is a no-op on other platforms.
-    pub fn mmap_populate(mut self, mmap_populate: bool) -> Self {
-        self.flags.mmap_populate = mmap_populate;
-        self
-    }
-
-    /// Enables or disables the O_DIRECT flag when opening the database file.
-    /// This gives a hint to Linux to bypass any operarating system caches when writing to this file.
-    ///
-    /// The default is `false`, but you may enable this if your database is much larger than your available memory to avoid throttling the page cache.
-    /// It is not recommended to enable this unless you know what you are doing.
-    ///
-    /// This setting only works on Linux, and is a no-op on other platforms.
-    pub fn direct_writes(mut self, direct_writes: bool) -> Self {
-        self.flags.direct_writes = direct_writes;
+        self.strict_mode = strict_mode;
         self
     }
 
@@ -138,17 +114,12 @@ impl OpenOptions {
     pub fn open<P: AsRef<Path>>(self, path: P) -> Result<DB> {
         let path: &Path = path.as_ref();
         let file = if !path.exists() {
-            init_file(
-                path,
-                self.pagesize,
-                self.num_pages,
-                self.flags.direct_writes,
-            )?
+            init_file(path, self.pagesize, self.num_pages)?
         } else {
-            open_file(path, false, self.flags.direct_writes)?
+            FileOpenOptions::new().read(true).write(true).open(path)?
         };
 
-        let db = DBInner::open(file, self.pagesize, self.flags)?;
+        let db = DBInner::open(file, self.pagesize, self.strict_mode)?;
         Ok(DB {
             inner: Arc::new(db),
         })
@@ -164,19 +135,9 @@ impl Default for OpenOptions {
         OpenOptions {
             pagesize,
             num_pages: DEFAULT_NUM_PAGES,
-            flags: DBFlags {
-                strict_mode: false,
-                mmap_populate: false,
-                direct_writes: false,
-            },
+            strict_mode: false,
         }
     }
-}
-
-pub(crate) struct DBFlags {
-    pub(crate) strict_mode: bool,
-    pub(crate) mmap_populate: bool,
-    pub(crate) direct_writes: bool,
 }
 
 /// A database
@@ -237,15 +198,15 @@ pub(crate) struct DBInner {
     pub(crate) freelist: Mutex<Freelist>,
     pub(crate) file: Mutex<File>,
     pub(crate) open_ro_txs: Mutex<Vec<u64>>,
-    pub(crate) flags: DBFlags,
+    pub(crate) strict_mode: bool,
 
     pub(crate) pagesize: u64,
 }
 
 impl DBInner {
-    pub(crate) fn open(file: File, pagesize: u64, flags: DBFlags) -> Result<DBInner> {
+    pub(crate) fn open(file: File, pagesize: u64, strict_mode: bool) -> Result<DBInner> {
         file.lock_exclusive()?;
-        let mmap = mmap(&file, flags.mmap_populate)?;
+        let mmap = mmap(&file)?;
         let mmap = Mutex::new(Arc::new(mmap));
         let db = DBInner {
             data: mmap,
@@ -256,16 +217,16 @@ impl DBInner {
             open_ro_txs: Mutex::new(Vec::new()),
 
             pagesize,
-            flags,
+            strict_mode,
         };
 
         {
             let meta = db.meta()?;
-            let data = db.data.lock()?;
+            let data = db.data.lock();
             let free_pages = Page::from_buf(&data, meta.freelist_page, pagesize).freelist();
 
             if !free_pages.is_empty() {
-                db.freelist.lock()?.init(free_pages);
+                db.freelist.lock().init(free_pages);
             }
         }
 
@@ -274,15 +235,15 @@ impl DBInner {
 
     pub(crate) fn resize(&self, file: &File, new_size: u64) -> Result<Arc<Mmap>> {
         file.allocate(new_size)?;
-        let _lock = self.mmap_lock.write()?;
-        let mut data = self.data.lock()?;
-        let mmap = mmap(file, self.flags.mmap_populate)?;
+        let _lock = self.mmap_lock.write();
+        let mut data = self.data.lock();
+        let mmap = mmap(file)?;
         *data = Arc::new(mmap);
         Ok(data.clone())
     }
 
     pub(crate) fn meta(&self) -> Result<Meta> {
-        let data = self.data.lock()?;
+        let data = self.data.lock();
         let meta1 = Page::from_buf(&data, 0, self.pagesize).meta();
 
         // Double check that we have the right pagesize before we read the second page.
@@ -336,8 +297,12 @@ impl DBInner {
     }
 }
 
-fn init_file(path: &Path, pagesize: u64, num_pages: usize, direct_write: bool) -> Result<File> {
-    let mut file = open_file(path, true, direct_write)?;
+fn init_file(path: &Path, pagesize: u64, num_pages: usize) -> Result<File> {
+    let mut file = FileOpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .open(path)?;
     file.allocate(pagesize * (num_pages as u64))?;
     let mut buf = vec![0; (pagesize * 4) as usize];
     let mut get_page = |index: u64| {
@@ -443,14 +408,8 @@ mod tests {
 
 // Have different mmap functions for Unix and Windows
 #[cfg(unix)]
-fn mmap(file: &File, populate: bool) -> Result<Mmap> {
-    use memmap2::MmapOptions;
-
-    let mut options = MmapOptions::new();
-    if populate {
-        options.populate();
-    }
-    let mmap = unsafe { options.map(file)? };
+fn mmap(file: &File) -> Result<Mmap> {
+    let mmap = unsafe { Mmap::map(file)? };
     // On Unix we advice the OS that page access will be random.
     mmap.advise(memmap2::Advice::Random)?;
     Ok(mmap)
@@ -458,37 +417,7 @@ fn mmap(file: &File, populate: bool) -> Result<Mmap> {
 
 // On Windows there is no advice to give.
 #[cfg(windows)]
-fn mmap(file: &File, populate: bool) -> Result<Mmap> {
+fn mmap(file: &File) -> Result<Mmap> {
     let mmap = unsafe { Mmap::map(file)? };
     Ok(mmap)
-}
-
-#[cfg(any(target_os = "linux", target_os = "android"))]
-const O_DIRECT: libc::c_int = libc::O_DIRECT;
-
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
-const O_DIRECT: libc::c_int = 0;
-
-// Have different mmap functions for Unix and Windows
-#[cfg(unix)]
-fn open_file<P: AsRef<Path>>(path: P, create: bool, direct_write: bool) -> Result<File> {
-    let mut open_options = FileOpenOptions::new();
-    open_options.write(true).read(true);
-    if create {
-        open_options.create_new(true);
-    }
-    if direct_write {
-        open_options.custom_flags(O_DIRECT);
-    }
-    Ok(open_options.open(path)?)
-}
-
-#[cfg(windows)]
-fn open_file<P: AsRef<Path>>(path: P, create: bool, direct_write: bool) -> Result<File> {
-    let mut open_options = FileOpenOptions::new();
-    open_options.write(true).read(true);
-    if create {
-        open_options.create_new(true);
-    }
-    Ok(open_options.open(path)?)
 }

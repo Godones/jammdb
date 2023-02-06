@@ -1,17 +1,13 @@
-use std::{
-    io::Write,
-    mem::size_of,
-    slice::{from_raw_parts, from_raw_parts_mut},
-    sync::Arc,
-};
+use std::io::Write;
+use core::mem::size_of;
+use core::slice::{from_raw_parts, from_raw_parts_mut};
+use alloc::sync::Arc;
 
 use memmap2::Mmap;
 
-use crate::{
-    errors::Result,
-    meta::Meta,
-    node::{Node, NodeData, NodeType},
-};
+use crate::errors::Result;
+use crate::meta::Meta;
+use crate::node::{Node, NodeData, NodeType};
 
 pub(crate) type PageID = u64;
 

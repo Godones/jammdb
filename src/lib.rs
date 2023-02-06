@@ -110,7 +110,7 @@
 //!     Ok(())
 //! }
 //!
-
+#![feature(error_in_core)]
 #[allow(clippy::mutable_key_type)]
 mod bucket;
 mod bytes;
@@ -125,15 +125,15 @@ mod node;
 mod page;
 mod page_node;
 mod tx;
+extern crate alloc;
 
+pub use crate::bytes::ToBytes;
 pub use bucket::Bucket;
-pub use cursor::{Buckets, Cursor, KVPairs, ToBuckets, ToKVPairs};
+pub use cursor::{Buckets, Cursor, KVPairs};
 pub use data::*;
 pub use db::{OpenOptions, DB};
 pub use errors::*;
 pub use tx::Tx;
-
-pub use crate::bytes::ToBytes;
 
 #[cfg(test)]
 ///

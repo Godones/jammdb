@@ -1,6 +1,8 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
-use crate::{bytes::Bytes, node::Leaf, ToBytes};
+use crate::bytes::Bytes;
+use crate::node::Leaf;
+use crate::ToBytes;
 
 /// Key / Value or Bucket Data
 ///
@@ -49,13 +51,6 @@ impl<'b, 'tx> Data<'b, 'tx> {
             return kv;
         }
         panic!("Cannot get KVPair from BucketData");
-    }
-
-    pub fn key(&self) -> &[u8] {
-        match self {
-            Self::Bucket(b) => b.name(),
-            Self::KeyValue(kv) => kv.key(),
-        }
     }
 }
 
