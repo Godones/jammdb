@@ -22,7 +22,7 @@ pub struct MemoryFile {
 impl Seek for MemoryFile {
     /// seek
     fn seek(&mut self, pos: SeekFrom) -> IOResult<u64> {
-        info!("seek: {:?}", pos);
+        //info!("seek: {:?}", pos);
         match pos {
             SeekFrom::Start(l) => self.pos = l as usize,
             SeekFrom::Current(l) => self.pos += l as usize,
@@ -42,7 +42,7 @@ impl Seek for MemoryFile {
 impl Read for MemoryFile {
     /// read
     fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
-        info!("read buf len: {}", buf.len());
+        //info!("read buf len: {}", buf.len());
         let act_size = self.data.len().saturating_sub(self.pos);
         let act_size = if act_size > buf.len() {
             buf.len()
@@ -62,7 +62,7 @@ impl Read for MemoryFile {
 impl Write for MemoryFile {
     /// write
     fn write(&mut self, buf: &[u8]) -> IOResult<usize> {
-        info!("write buf len: {}", buf.len());
+        //info!("write buf len: {}", buf.len());
         let act_size = buf.len() + self.pos;
         if act_size > self.data.len() {
             self.data.resize(act_size, 0);
@@ -113,7 +113,7 @@ impl OpenOption for FileOpenOptions {
 impl MemoryFile {
     /// create or get file
     pub fn open<T: PathLike + ToString>(name: &T) -> Option<Self> {
-        info!("open file {}", name);
+        //info!("open file {}", name);
         if FILE_S.lock().get(&name.to_string()).is_some() {
             let mut file = FILE_S.lock().get(&name.to_string()).unwrap().clone();
             file.pos = 0;
@@ -137,17 +137,17 @@ impl FileExt for MemoryFile {
     }
     /// 扩展大小
     fn allocate(&mut self, new_size: u64) -> IOResult<()> {
-        info!(
-            "before allocate: {:?}, new_size:{:#x}",
-            self.data.len(),
-            new_size
-        );
+        //info!(
+        //     "before allocate: {:?}, new_size:{:#x}",
+        //     self.data.len(),
+        //     new_size
+        // );
         if self.data.len() > new_size as usize {
             return Ok(());
         }
         self.data.resize(new_size as usize, 0);
         FILE_S.lock().insert(self.name.clone(), self.clone());
-        info!("after allocate: {:#x}", self.data.len());
+        //info!("after allocate: {:#x}", self.data.len());
         Ok(())
     }
     fn unlock(&self) -> IOResult<()> {
@@ -200,7 +200,7 @@ pub struct Mmap {
 impl MemoryMap for Mmap {
     /// map
     fn map(file: &mut dyn DbFile) -> Result<Self, core2::io::Error> {
-        info!("[{}/{}] map file: {:#x}", file!(), line!(), file.size());
+        //info!("[{}/{}] map file: {:#x}", file!(), line!(), file.size());
         let map = Mmap {
             size: file.size(),
             addr: file.addr(),

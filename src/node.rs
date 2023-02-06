@@ -428,7 +428,7 @@ impl<'a> NodeData<'a> {
                 let mut last = l1[0].key();
                 for l in l1[1..].iter() {
                     if last >= l.key() {
-                        info!("HA. GOT 'EM!");
+                        // info!("HA. GOT 'EM!");
                     }
                     last = l.key();
                 }

@@ -130,8 +130,6 @@ mod tx;
 extern crate alloc;
 #[cfg(test)]
 extern crate std;
-#[macro_use]
-extern crate logger;
 
 pub use crate::bytes::ToBytes;
 pub use bucket::Bucket;

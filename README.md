@@ -1,4 +1,4 @@
-# jammdb
+# jammdb for no_std
 
 ## Just Another Memory Mapped Database
 
@@ -36,6 +36,10 @@ so reads require no additional memory allocation.
   * `x86_64-pc-windows-gnu`
   * `i686-pc-windows-gnu`
 
+## For no_std
+
+In order to run this project in the no_std environment, the crates that depend on std have been deleted, and some crates that do not depend on std have been added, such as `hashbrown` and `spin`. `File` and `mmap` are replaced by redefined interfaces. Users need to create types that implement these interfaces. The data structures in the project depend on these types for initialization. The defined interface is located in the `fs` module. For testing, a file that uses memory simulation and implements the above interface is added, located in `fs/memfile`.
+
 ## Examples
 
 Here are a couple of simple examples to get you started, but you should check out the docs for more details.
@@ -43,17 +47,17 @@ Here are a couple of simple examples to get you started, but you should check ou
 ### Simple put and get
 ```rust
 use jammdb::{DB, Data, Error};
-
+use jammdb::memfile::{FileOpenOptions, Mmap};
 fn main() -> Result<(), Error> {
 {
     // open a new database file
-    let db = DB::open("my-database.db")?;
+    let db =  DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
 
     // open a writable transaction so we can make changes
-    let tx = db.tx(true)?;
+    let mut tx = db.tx(true)?;
 
     // create a bucket to store a map of first names to last names
-    let names_bucket = tx.create_bucket("names")?;
+    let mut names_bucket = tx.create_bucket("names")?;
     names_bucket.put("Kanan", "Jarrus")?;
     names_bucket.put("Ezra", "Bridger")?;
 
@@ -62,14 +66,13 @@ fn main() -> Result<(), Error> {
 }
 {
     // open the existing database file
-    let db = DB::open("my-database.db")?;
+    let db =  DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
     // open a read-only transaction to get the data
-    let tx = db.tx(true)?;
+    let mut tx = db.tx(true)?;
     // get the bucket we created in the last transaction
     let names_bucket = tx.get_bucket("names")?;
-    // get the key/ value pair we inserted into the bucket
+    // get the key / value pair we inserted into the bucket
     if let Some(data) = names_bucket.get("Kanan") {
-        assert!(data.is_kv());
         assert_eq!(data.kv().value(), b"Jarrus");
     }
 }
@@ -81,7 +84,7 @@ fn main() -> Result<(), Error> {
 ```rust
 use jammdb::{DB, Data, Error};
 use serde::{Deserialize, Serialize};
-
+use jammdb::memfile::{FileOpenOptions, Mmap};
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 struct User {
     username: String,
@@ -95,7 +98,7 @@ fn main() -> Result<(), Error> {
     };
 {
     // open a new database file and start a writable transaction
-    let db = DB::open("my-database.db")?;
+    let db = DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
     let tx = db.tx(true)?;
 
     // create a bucket to store users
@@ -110,7 +113,7 @@ fn main() -> Result<(), Error> {
 }
 {
     // open the existing database file
-    let db = DB::open("my-database.db")?;
+    let db = DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
     // open a read-only transaction to get the data
     let tx = db.tx(true)?;
     // get the bucket we created in the last transaction
