@@ -1,8 +1,10 @@
 use jammdb::memfile::{FileOpenOptions, Mmap};
 use jammdb::{Data, Error, OpenOptions, DB};
 use std::collections::HashMap;
+use logger::init_logger;
 
 fn main() -> Result<(), Error> {
+    init_logger();
     let path = std::path::Path::new("my-database.db");
     if path.exists() {
         std::fs::remove_file(path).unwrap();
@@ -39,5 +41,7 @@ fn main() -> Result<(), Error> {
         }
     }
     println!("test jammdb ok");
+
+    jammdb::test_split().unwrap();
     Ok(())
 }

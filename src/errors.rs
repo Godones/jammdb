@@ -63,6 +63,7 @@ impl PartialEq for Error {
 
 #[cfg(test)]
 mod tests {
+    use std::format;
     use super::*;
 
     #[test]

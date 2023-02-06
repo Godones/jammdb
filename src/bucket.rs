@@ -1149,7 +1149,7 @@ mod tests {
     #[test]
     fn test_range() -> Result<()> {
         let random_file = RandomFile::new();
-        let db = DB::open(&random_file)?;
+        let db = DB::<Mmap>::open::<FileOpenOptions,_>(&random_file)?;
         {
             let tx = db.tx(true)?;
             let b = tx.create_bucket("abc")?;

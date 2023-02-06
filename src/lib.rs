@@ -131,7 +131,7 @@ extern crate alloc;
 #[cfg(test)]
 extern crate std;
 #[macro_use]
-extern crate log;
+extern crate logger;
 
 pub use crate::bytes::ToBytes;
 pub use bucket::Bucket;
@@ -142,6 +142,7 @@ pub use errors::*;
 pub use fs::memfile;
 pub use fs::*;
 pub use tx::Tx;
+pub use node::test_split;
 
 #[cfg(test)]
 mod testutil {
@@ -152,6 +153,7 @@ mod testutil {
     use std::ops::Deref;
     use std::string::String;
     use std::vec::Vec;
+    use bytes::{BufMut, Bytes, BytesMut};
 
     #[derive(Debug)]
     pub struct RandomFile {
@@ -202,10 +204,14 @@ mod testutil {
         #[allow(unused_must_use)]
         fn drop(&mut self) {}
     }
-    pub fn rand_bytes(len: usize) -> Vec<u8> {
-        rand::thread_rng()
-            .sample_iter(&Alphanumeric)
-            .take(len)
-            .collect::<Vec<u8>>()
+    pub fn rand_bytes(size: usize) -> Bytes {
+        let buf = BytesMut::new();
+        let mut w = buf.writer();
+        for byte in rand::thread_rng().sample_iter(&Alphanumeric).take(size) {
+            let _ = write!(&mut w, "{}", byte);
+            // let _ = w.write(&[byte]);
+        }
+
+        w.into_inner().freeze()
     }
 }

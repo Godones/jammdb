@@ -1,10 +1,11 @@
-use alloc::rc::Rc;
-use alloc::string::String;
-use alloc::vec::Vec;
 use core::{
     cmp::Ordering,
     hash::{Hash, Hasher},
 };
+use alloc::rc::Rc;
+use alloc::vec::Vec;
+use alloc::string::String;
+
 pub trait ToBytes<'a> {
     fn to_bytes(self) -> Bytes<'a>;
 }
@@ -25,10 +26,8 @@ macro_rules! byte_array_to_bytes {
     ($($n:expr),*) => (
     $(
         impl<'a> ToBytes<'a> for [u8; $n] {
-            fn to_bytes(self) -> Bytes<'a>{
-                let mut buf = Vec::new();
-                buf.extend_from_slice(&self);
-                Bytes::Vec(Rc::new(buf))
+            fn to_bytes(self) -> Bytes<'a> {
+                Bytes::Bytes(bytes::Bytes::copy_from_slice(&self))
             }
         }
     )*
@@ -52,6 +51,18 @@ impl<'a> ToBytes<'a> for Vec<u8> {
     }
 }
 
+impl<'a> ToBytes<'a> for bytes::Bytes {
+    fn to_bytes(self) -> Bytes<'a> {
+        Bytes::Bytes(self)
+    }
+}
+
+impl<'a> ToBytes<'a> for &bytes::Bytes {
+    fn to_bytes(self) -> Bytes<'a> {
+        Bytes::Bytes(self.clone())
+    }
+}
+
 impl<'a> ToBytes<'a> for Bytes<'a> {
     fn to_bytes(self) -> Bytes<'a> {
         self
@@ -67,6 +78,7 @@ impl<'a> ToBytes<'a> for &Bytes<'a> {
 #[derive(Debug, Clone)]
 pub enum Bytes<'a> {
     Slice(&'a [u8]),
+    Bytes(bytes::Bytes),
     Vec(Rc<Vec<u8>>),
     String(Rc<String>),
 }
@@ -75,6 +87,7 @@ impl<'a> Bytes<'a> {
     pub fn size(&self) -> usize {
         match self {
             Self::Slice(s) => s.len(),
+            Self::Bytes(b) => b.len(),
             Self::Vec(v) => v.len(),
             Self::String(s) => s.len(),
         }
@@ -85,6 +98,7 @@ impl<'a> AsRef<[u8]> for Bytes<'a> {
     fn as_ref(&self) -> &[u8] {
         match self {
             Self::Slice(s) => s,
+            Self::Bytes(b) => b,
             Self::Vec(v) => v.as_slice(),
             Self::String(s) => s.as_bytes(),
         }
@@ -126,7 +140,7 @@ impl<'a> Hash for Bytes<'a> {
 mod tests {
     use super::*;
     use alloc::vec;
-
+    use alloc::vec::Vec;
     #[test]
     fn from_vec() {
         let vec: Vec<u8> = vec![0, 0, 0];
