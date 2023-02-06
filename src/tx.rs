@@ -1,23 +1,13 @@
+use crate::fs::{File, MemoryMap};
 use alloc::rc::Rc;
-use alloc::{format, vec};
 use alloc::vec::Vec;
+use alloc::{format, vec};
 use core::{cell::RefCell, marker::PhantomData};
+use core2::io::SeekFrom;
 use hashbrown::HashSet;
 use spin::{MutexGuard, RwLockReadGuard};
-use crate::fs::{File, MemoryMap};
-use core2::io::{SeekFrom};
 
-use crate::{
-    bucket::{Bucket, BucketMeta, InnerBucket},
-    bytes::ToBytes,
-    cursor::Buckets,
-    db::{DB, MIN_ALLOC_SIZE},
-    errors::{Error, Result},
-    freelist::TxFreelist,
-    meta::Meta,
-    node::Node,
-    page::{Page, PageID, Pages},
-};
+use crate::{bucket::{Bucket, BucketMeta, InnerBucket}, BucketName, bytes::ToBytes, cursor::ToBuckets, db::{DB, MIN_ALLOC_SIZE}, errors::{Error, Result}, freelist::TxFreelist, meta::Meta, node::Node, page::{Page, PageID, Pages}};
 
 pub(crate) enum TxLock<'tx> {
     Rw(MutexGuard<'tx, File>),
@@ -92,11 +82,11 @@ impl<'tx> TxLock<'tx> {
 /// <sup>2</sup> Keep in mind that long running read-only transactions will prevent the database from
 /// reclaiming old pages and your database may increase in disk size quickly if you're writing lots of data,
 /// so it's a good idea to keep transactions short.
-pub struct Tx<'tx,M> {
+pub struct Tx<'tx, M> {
     pub(crate) inner: RefCell<TxInner<'tx, M>>,
 }
 
-pub(crate) struct TxInner<'tx,M> {
+pub(crate) struct TxInner<'tx, M> {
     pub(crate) db: &'tx DB<M>,
     pub(crate) lock: TxLock<'tx>,
     pub(crate) root: Rc<RefCell<InnerBucket<'tx>>>,
@@ -106,8 +96,8 @@ pub(crate) struct TxInner<'tx,M> {
     num_freelist_pages: u64,
 }
 
-impl<'tx,M:MemoryMap+'static> Tx<'tx,M> {
-    pub(crate) fn new(db: &'tx DB<M>, writable: bool) -> Result<Tx<'tx,M>> {
+impl<'tx, M: MemoryMap + 'static> Tx<'tx, M> {
+    pub(crate) fn new(db: &'tx DB<M>, writable: bool) -> Result<Tx<'tx, M>> {
         let lock = match writable {
             true => TxLock::Rw(db.inner.file.lock()),
             false => TxLock::Ro(db.inner.mmap_lock.read()),
@@ -237,7 +227,7 @@ impl<'tx,M:MemoryMap+'static> Tx<'tx,M> {
     }
 
     /// Iterator over the root level buckets
-    pub fn buckets<'b>(&'b self) -> Buckets<'b, 'tx> {
+    pub fn buckets<'b>(&'b self) -> impl Iterator<Item = (BucketName<'b, 'tx>, Bucket<'b, 'tx>)> {
         let tx = self.inner.borrow();
         let bucket = Bucket {
             inner: tx.root.clone(),
@@ -245,7 +235,7 @@ impl<'tx,M:MemoryMap+'static> Tx<'tx,M> {
             writable: tx.lock.writable(),
             _phantom: PhantomData,
         };
-        Buckets { c: bucket.cursor() }
+        bucket.cursor().to_buckets()
     }
 
     /// Writes the changes made in the writeable transaction to the underlying file.
@@ -275,7 +265,7 @@ impl<'tx,M:MemoryMap+'static> Tx<'tx,M> {
     }
 }
 
-impl<'tx,M:MemoryMap+'static> TxInner<'tx, M> {
+impl<'tx, M: MemoryMap + 'static> TxInner<'tx, M> {
     fn write_data(&mut self, freelist: &mut TxFreelist) -> Result<()> {
         if let TxLock::Rw(file) = &mut self.lock {
             // Write the freelist to a new page
@@ -473,7 +463,7 @@ impl<'tx,M:MemoryMap+'static> TxInner<'tx, M> {
     }
 }
 
-impl<'tx,M> Drop for TxInner<'tx, M> {
+impl<'tx, M> Drop for TxInner<'tx, M> {
     fn drop(&mut self) {
         if !self.lock.writable() {
             let mut open_txs = self.db.inner.open_ro_txs.lock();
@@ -488,16 +478,16 @@ impl<'tx,M> Drop for TxInner<'tx, M> {
 
 #[cfg(test)]
 mod tests {
-    use core::mem::size_of;
     use super::*;
     use crate::db::{OpenOptions, DB};
     use crate::memfile::{FileOpenOptions, Mmap};
     use crate::testutil::RandomFile;
+    use core::mem::size_of;
 
     #[test]
     fn test_ro_txs() -> Result<()> {
         let random_file = RandomFile::new();
-        let db = DB::<Mmap>::open::<FileOpenOptions,_>(&random_file)?;
+        let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file)?;
 
         {
             let tx = db.tx(true)?;
@@ -523,7 +513,7 @@ mod tests {
             .pagesize(1024)
             // make sure we have plenty of pages so we don't have to resize while the read-only tx is open
             .num_pages(10)
-            .open::<_,FileOpenOptions,Mmap>(&random_file)?;
+            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
         {
             // create a read-only tx
             let tx = db.tx(false)?;

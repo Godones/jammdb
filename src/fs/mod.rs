@@ -10,7 +10,6 @@ use core::fmt::{Debug, Display};
 use core::ops::{Deref, DerefMut};
 use core2::io::{Read, Seek, Write};
 
-
 pub type IOResult<T> = core2::io::Result<T>;
 
 pub struct File {
@@ -65,7 +64,7 @@ pub trait OpenOption {
     fn create(&mut self, create: bool) -> &mut Self;
 }
 
-pub trait PathLike:Display+Debug {
+pub trait PathLike: Display + Debug {
     fn exists(&self) -> bool;
 }
 

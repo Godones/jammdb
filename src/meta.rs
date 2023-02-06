@@ -1,7 +1,6 @@
 use alloc::vec::Vec;
 use sha3::{Digest, Sha3_256};
 
-
 use crate::bucket::BucketMeta;
 use crate::page::PageID;
 
@@ -59,7 +58,6 @@ impl Meta {
         buf.extend_from_slice(&self.freelist_page.to_be_bytes());
         buf.extend_from_slice(&self.tx_id.to_be_bytes());
         buf
-
     }
 }
 

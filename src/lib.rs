@@ -120,45 +120,45 @@ mod data;
 mod db;
 mod errors;
 mod freelist;
+mod fs;
 mod lifetimes;
 mod meta;
 mod node;
 mod page;
 mod page_node;
 mod tx;
-mod fs;
+extern crate alloc;
 #[cfg(test)]
 extern crate std;
-extern crate alloc;
 #[macro_use]
 extern crate log;
 
 pub use crate::bytes::ToBytes;
 pub use bucket::Bucket;
-pub use cursor::{Buckets, Cursor, KVPairs};
+pub use cursor::{Buckets, Cursor, KVPairs, ToBuckets, ToKVPairs};
 pub use data::*;
 pub use db::{OpenOptions, DB};
 pub use errors::*;
-pub use tx::Tx;
 pub use fs::memfile;
 pub use fs::*;
+pub use tx::Tx;
 
 #[cfg(test)]
 mod testutil {
+    use crate::fs::{MetaData, PathLike};
     use core::fmt::{Display, Formatter};
-    use std::ops::Deref;
     use rand::distributions::Alphanumeric;
     use rand::Rng;
+    use std::ops::Deref;
     use std::string::String;
     use std::vec::Vec;
-    use crate::fs::{MetaData, PathLike};
 
     #[derive(Debug)]
     pub struct RandomFile {
         pub path: String,
     }
 
-    impl Display for RandomFile{
+    impl Display for RandomFile {
         fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
             write!(f, "{}", self.path)
         }
@@ -174,8 +174,8 @@ mod testutil {
                         .collect::<Vec<u8>>()
                         .as_slice(),
                 )
-                    .unwrap()
-                    .into();
+                .unwrap()
+                .into();
                 let path = std::env::temp_dir().join(filename.clone());
                 if path.metadata().is_err() {
                     return RandomFile { path: filename };
@@ -183,8 +183,6 @@ mod testutil {
             }
         }
     }
-
-
 
     impl PathLike for RandomFile {
         fn exists(&self) -> bool {

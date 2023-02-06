@@ -3,20 +3,19 @@
 pub mod record;
 
 use core::fmt::{Display, Formatter};
-use std::ops::Deref;
+use jammdb::PathLike;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
+use std::ops::Deref;
 use std::string::String;
 use std::vec::Vec;
-use jammdb::PathLike;
-
 
 #[derive(Debug)]
 pub struct RandomFile {
     pub path: String,
 }
 
-impl Display for RandomFile{
+impl Display for RandomFile {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self.path)
     }
@@ -32,8 +31,8 @@ impl RandomFile {
                     .collect::<Vec<u8>>()
                     .as_slice(),
             )
-                .unwrap()
-                .into();
+            .unwrap()
+            .into();
             let path = std::env::temp_dir().join(filename.clone());
             if path.metadata().is_err() {
                 return RandomFile { path: filename };
@@ -41,8 +40,6 @@ impl RandomFile {
         }
     }
 }
-
-
 
 impl PathLike for RandomFile {
     fn exists(&self) -> bool {
@@ -68,5 +65,3 @@ pub fn rand_bytes(len: usize) -> Vec<u8> {
         .take(len)
         .collect::<Vec<u8>>()
 }
-
-

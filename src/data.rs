@@ -52,6 +52,13 @@ impl<'b, 'tx> Data<'b, 'tx> {
         }
         panic!("Cannot get KVPair from BucketData");
     }
+    pub fn key(&self) -> &[u8] {
+        match self {
+            Self::Bucket(b) => b.name(),
+            Self::KeyValue(kv) => kv.key(),
+        }
+    }
+
 }
 
 impl<'b, 'tx> From<Leaf<'tx>> for Data<'b, 'tx> {
@@ -203,8 +210,8 @@ impl<'b, 'tx> From<Leaf<'tx>> for Option<KVPair<'b, 'tx>> {
 
 #[cfg(test)]
 mod tests {
-    use std::vec;
     use super::*;
+    use std::vec;
 
     #[test]
     fn test_kv_pair() {

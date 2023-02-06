@@ -1,14 +1,14 @@
 use alloc::string::ToString;
 use alloc::sync::Arc;
-use alloc::vec::Vec;
 use alloc::vec;
+use alloc::vec::Vec;
 use core::marker::PhantomData;
 use core::ops::DerefMut;
 use spin::{Mutex, RwLock};
 
+use crate::fs::{File, MemoryMap, OpenOption, PathLike};
 use crate::{bucket::BucketMeta, errors::Result, page::Page, tx::Tx};
 use crate::{freelist::Freelist, meta::Meta};
-use crate::fs::{File, MemoryMap, OpenOption, PathLike};
 
 const MAGIC_VALUE: u32 = 0x00AB_CDEF;
 const VERSION: u32 = 1;
@@ -110,9 +110,12 @@ impl OpenOptions {
     /// # Panics
     ///
     /// Will panic if the pagesize the database is opened with is not the same as the pagesize it was created with.
-    pub fn open<T: ToString + PathLike,O:OpenOption,M:MemoryMap+'static>(self, path: T) -> Result<DB<M>> {
+    pub fn open<T: ToString + PathLike, O: OpenOption, M: MemoryMap + 'static>(
+        self,
+        path: T,
+    ) -> Result<DB<M>> {
         let file = if !path.exists() {
-            init_file::<_,O>(&path, self.pagesize, self.num_pages)?
+            init_file::<_, O>(&path, self.pagesize, self.num_pages)?
         } else {
             O::new().read(true).write(true).open(&path)?
         };
@@ -150,7 +153,7 @@ pub struct DB<M> {
     pub(crate) inner: Arc<DBInner<M>>,
 }
 
-impl <M:MemoryMap+'static> DB<M> {
+impl<M: MemoryMap + 'static> DB<M> {
     /// Opens a database using the default [`OpenOptions`].
     ///
     /// Same as calling `OpenOptions::new().open(path)`.
@@ -169,8 +172,8 @@ impl <M:MemoryMap+'static> DB<M> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn open<O:OpenOption,T: ToString + PathLike>(path: T) -> Result<Self> {
-        OpenOptions::new().open::<T, O,M>(path)
+    pub fn open<O: OpenOption, T: ToString + PathLike>(path: T) -> Result<Self> {
+        OpenOptions::new().open::<T, O, M>(path)
     }
 
     /// Creates a [`Tx`].
@@ -190,7 +193,7 @@ impl <M:MemoryMap+'static> DB<M> {
         self.tx(false)?.check()
     }
 }
-pub(crate) struct DBInner<M>{
+pub(crate) struct DBInner<M> {
     pub(crate) data: Mutex<Arc<M>>,
     pub(crate) mmap_lock: RwLock<()>,
     pub(crate) freelist: Mutex<Freelist>,
@@ -201,7 +204,7 @@ pub(crate) struct DBInner<M>{
     pub(crate) _marker: PhantomData<M>,
 }
 
-impl <M:MemoryMap+'static> DBInner<M> {
+impl<M: MemoryMap + 'static> DBInner<M> {
     pub(crate) fn open(mut file: File, pagesize: u64, strict_mode: bool) -> Result<Self> {
         file.lock_exclusive()?;
         let mmap = { Arc::new(M::map(file.deref_mut())?) };
@@ -233,11 +236,15 @@ impl <M:MemoryMap+'static> DBInner<M> {
         Ok(db)
     }
 
-    pub(crate) fn resize(&self, file: &mut File, new_size: u64) -> Result<Arc<dyn MemoryMap<Target=[u8]>>> {
+    pub(crate) fn resize(
+        &self,
+        file: &mut File,
+        new_size: u64,
+    ) -> Result<Arc<dyn MemoryMap<Target = [u8]>>> {
         file.allocate(new_size)?;
         let _lock = self.mmap_lock.write();
         let mut data = self.data.lock();
-        let mmap =  { M::map((*file).deref_mut())?};
+        let mmap = { M::map((*file).deref_mut())? };
         *data = Arc::new(mmap);
         Ok(data.clone())
     }
@@ -297,12 +304,12 @@ impl <M:MemoryMap+'static> DBInner<M> {
     }
 }
 
-fn init_file<T: ToString + PathLike,O:OpenOption>(path: &T, pagesize: u64, num_pages: usize) -> Result<File> {
-    let mut file = O::new()
-        .create(true)
-        .read(true)
-        .write(true)
-        .open(path)?;
+fn init_file<T: ToString + PathLike, O: OpenOption>(
+    path: &T,
+    pagesize: u64,
+    num_pages: usize,
+) -> Result<File> {
+    let mut file = O::new().create(true).read(true).write(true).open(path)?;
     file.allocate(pagesize * (num_pages as u64))?;
     let mut buf = vec![0; (pagesize * 4) as usize];
     let mut get_page = |index: u64| {
@@ -347,8 +354,8 @@ fn init_file<T: ToString + PathLike,O:OpenOption>(path: &T, pagesize: u64, num_p
 
 #[cfg(test)]
 mod tests {
-    use crate::memfile::{FileOpenOptions, Mmap};
     use super::*;
+    use crate::memfile::{FileOpenOptions, Mmap};
     use crate::testutil::RandomFile;
 
     #[test]
@@ -359,7 +366,7 @@ mod tests {
             let db = OpenOptions::new()
                 .pagesize(5000)
                 .num_pages(100)
-                .open::<_,FileOpenOptions,Mmap>(&random_file)
+                .open::<_, FileOpenOptions, Mmap>(&random_file)
                 .unwrap();
             assert_eq!(db.pagesize(), 5000);
         }
@@ -372,7 +379,7 @@ mod tests {
             let db = OpenOptions::new()
                 .pagesize(5000)
                 .num_pages(100)
-                .open::<_,FileOpenOptions,Mmap>(&random_file)
+                .open::<_, FileOpenOptions, Mmap>(&random_file)
                 .unwrap();
             assert_eq!(db.pagesize(), 5000);
         }
@@ -399,10 +406,10 @@ mod tests {
             let db = OpenOptions::new()
                 .pagesize(5000)
                 .num_pages(100)
-                .open::<_,FileOpenOptions,Mmap>(&random_file)
+                .open::<_, FileOpenOptions, Mmap>(&random_file)
                 .unwrap();
             assert_eq!(db.pagesize(), 5000);
         }
-        DB::<Mmap>::open::<FileOpenOptions,_>(&random_file).unwrap();
+        DB::<Mmap>::open::<FileOpenOptions, _>(&random_file).unwrap();
     }
 }

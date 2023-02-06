@@ -1,10 +1,10 @@
-use std::collections::HashMap;
-use jammdb::{Data, Error, DB, OpenOptions};
 use jammdb::memfile::{FileOpenOptions, Mmap};
+use jammdb::{Data, Error, OpenOptions, DB};
+use std::collections::HashMap;
 
 fn main() -> Result<(), Error> {
     let path = std::path::Path::new("my-database.db");
-    if path.exists(){
+    if path.exists() {
         std::fs::remove_file(path).unwrap();
     }
     {
@@ -28,7 +28,7 @@ fn main() -> Result<(), Error> {
     }
     {
         // open the existing database file
-        let db = DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
+        let db = DB::<Mmap>::open::<FileOpenOptions, _>("my-database.db")?;
         // open a read-only transaction to get the data
         let tx = db.tx(true)?;
         // get the bucket we created in the last transaction

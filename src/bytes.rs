@@ -52,8 +52,6 @@ impl<'a> ToBytes<'a> for Vec<u8> {
     }
 }
 
-
-
 impl<'a> ToBytes<'a> for Bytes<'a> {
     fn to_bytes(self) -> Bytes<'a> {
         self
@@ -126,8 +124,8 @@ impl<'a> Hash for Bytes<'a> {
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec;
     use super::*;
+    use alloc::vec;
 
     #[test]
     fn from_vec() {

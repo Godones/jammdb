@@ -1,12 +1,12 @@
+use crate::errors::Result;
+use crate::fs::MemoryMap;
+use crate::meta::Meta;
+use crate::node::{Node, NodeData, NodeType};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::mem::size_of;
 use core::slice::{from_raw_parts, from_raw_parts_mut};
 use core2::io::Write;
-use crate::errors::Result;
-use crate::fs::MemoryMap;
-use crate::meta::Meta;
-use crate::node::{Node, NodeData, NodeType};
 
 pub(crate) type PageID = u64;
 
@@ -14,12 +14,12 @@ pub(crate) type PageType = u8;
 
 #[derive(Clone)]
 pub(crate) struct Pages {
-    pub(crate) data: Arc<dyn MemoryMap<Target=[u8]>>,
+    pub(crate) data: Arc<dyn MemoryMap<Target = [u8]>>,
     pub(crate) pagesize: u64,
 }
 
 impl Pages {
-    pub fn new(data: Arc<dyn MemoryMap<Target=[u8]>>, pagesize: u64) -> Pages {
+    pub fn new(data: Arc<dyn MemoryMap<Target = [u8]>>, pagesize: u64) -> Pages {
         Pages { data, pagesize }
     }
 

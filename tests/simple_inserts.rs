@@ -1,6 +1,6 @@
+use jammdb::memfile::{FileOpenOptions, Mmap};
 use jammdb::{Bucket, Data, Error, OpenOptions, DB};
 use rand::prelude::*;
-use jammdb::memfile::{FileOpenOptions, Mmap};
 
 mod common;
 
@@ -40,7 +40,7 @@ fn test_insert(mut values: Vec<u64>) -> Result<(), Error> {
     {
         let db = OpenOptions::new()
             .strict_mode(true)
-            .open::<_,FileOpenOptions,Mmap>(&random_file)?;
+            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
         {
             let tx = db.tx(true)?;
             let b = tx.create_bucket("abc")?;
@@ -64,7 +64,7 @@ fn test_insert(mut values: Vec<u64>) -> Result<(), Error> {
         }
     }
     {
-        let db = DB::<Mmap>::open::<FileOpenOptions,_>(&random_file.path)?;
+        let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file.path)?;
         let tx = db.tx(false)?;
         let b = tx.get_bucket("abc")?;
         // check after re-opening file
@@ -73,7 +73,7 @@ fn test_insert(mut values: Vec<u64>) -> Result<(), Error> {
         let missing_key = (values.len() + 1) as u64;
         assert!(b.get(missing_key.to_be_bytes()).is_none());
     }
-    let db = DB::<Mmap>::open::<FileOpenOptions,_>(&random_file.path)?;
+    let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file.path)?;
     db.check()
 }
 

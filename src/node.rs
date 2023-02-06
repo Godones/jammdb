@@ -537,19 +537,21 @@ impl<'n> Node<'n> {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
+    use crate::memfile::{FileOpenOptions, Mmap};
     use crate::{
-        testutil::{ rand_bytes,RandomFile},
+        testutil::{rand_bytes, RandomFile},
         OpenOptions,
     };
-    use crate::memfile::{FileOpenOptions, Mmap};
+    use std::collections::HashMap;
 
     use super::*;
 
     #[test]
     fn test_split() -> Result<()> {
         let random_file = RandomFile::new();
-        let db = OpenOptions::new().pagesize(1024).open::<_,FileOpenOptions,Mmap>(&random_file)?;
+        let db = OpenOptions::new()
+            .pagesize(1024)
+            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
         // Test split
         {
             let tx = db.tx(true)?;

@@ -1,6 +1,6 @@
+use jammdb::memfile::{FileOpenOptions, Mmap};
 use jammdb::{Bucket, Data, Error, OpenOptions, DB};
 use rand::prelude::*;
-use jammdb::memfile::{FileOpenOptions, Mmap};
 
 mod common;
 
@@ -121,8 +121,8 @@ fn cursor_seek() -> Result<(), Error> {
     let random_file = common::RandomFile::new();
     {
         let db = OpenOptions::new()
-            .strict_mode(true).
-            open::<_,FileOpenOptions,Mmap>(&random_file)?;
+            .strict_mode(true)
+            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
         {
             let tx = db.tx(true)?;
             let b = tx.create_bucket("abc")?;
@@ -147,8 +147,8 @@ fn cursor_seek() -> Result<(), Error> {
     }
     {
         let db = OpenOptions::new()
-            .strict_mode(true).
-            open::<_,FileOpenOptions,Mmap>(&random_file)?;
+            .strict_mode(true)
+            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
         {
             let tx = db.tx(false)?;
             let b = tx.get_bucket("abc")?;
@@ -173,7 +173,7 @@ fn cursor_seek() -> Result<(), Error> {
             check_cursor("bl", &fruits[6..], &b, 6);
         }
     }
-    let db = DB::<Mmap>::open::<FileOpenOptions,_>(&random_file.path)?;
+    let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file.path)?;
     db.check()
 }
 
@@ -217,7 +217,9 @@ fn check_cursor(seek_to: &str, expected_fruits: &[&str], b: &Bucket, start_index
 fn root_buckets() -> Result<(), Error> {
     let random_file = common::RandomFile::new();
     {
-        let db = OpenOptions::new().strict_mode(true).open::<_,FileOpenOptions,Mmap>(&random_file)?;
+        let db = OpenOptions::new()
+            .strict_mode(true)
+            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
         {
             let tx = db.tx(true)?;
             {
@@ -261,7 +263,9 @@ fn kv_iter() -> Result<(), Error> {
     let random_file = common::RandomFile::new();
     let data = vec![("abc", "one"), ("def", "two"), ("ghi", "three")];
     {
-        let db = OpenOptions::new().strict_mode(true).open::<_,FileOpenOptions,Mmap>(&random_file)?;
+        let db = OpenOptions::new()
+            .strict_mode(true)
+            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
         {
             let tx = db.tx(true)?;
             {
