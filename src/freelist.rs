@@ -94,8 +94,7 @@ impl Freelist {
     pub(crate) fn free(&mut self, tx_id: u64, page_id: PageID) {
         debug_assert!(
             page_id > 1,
-            "cannot free page {}, reserved for meta",
-            page_id
+            "cannot free page {page_id}, reserved for meta"
         );
         let pages = self.pending_pages.entry(tx_id).or_insert_with(Vec::new);
         pages.push(page_id);
@@ -127,8 +126,7 @@ impl Freelist {
         for id in self.free_pages.iter().cloned() {
             debug_assert!(
                 id > 1,
-                "pageID {} cannot be in freelist, reserved for meta",
-                id
+                "pageID {id} cannot be in freelist, reserved for meta"
             );
 
             if prev == 0 || id - prev != 1 {

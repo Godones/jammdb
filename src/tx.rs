@@ -366,8 +366,7 @@ impl<'tx, M: MemoryMap + 'static> TxInner<'tx, M> {
             // Make sure this page hasn't already been used
             if !unused_pages.remove(&page_id) {
                 return Err(Error::InvalidDB(format!(
-                    "Page {} missing from unused_pages",
-                    page_id,
+                    "Page {page_id} missing from unused_pages",
                 )));
             }
             let page = self.pages.page(page_id);
@@ -376,8 +375,7 @@ impl<'tx, M: MemoryMap + 'static> TxInner<'tx, M> {
                 let page_id = page_id + i + 1;
                 if !unused_pages.remove(&page_id) {
                     return Err(Error::InvalidDB(format!(
-                        "Overflow Page {} from missing from unused_pages",
-                        page_id,
+                        "Overflow Page {page_id} from missing from unused_pages",
                     )));
                 }
             }
@@ -392,8 +390,7 @@ impl<'tx, M: MemoryMap + 'static> TxInner<'tx, M> {
                         if let Some(last) = last {
                             if last >= b.key() {
                                 return Err(Error::InvalidDB(format!(
-                                    "Branch page {} contains unsorted elements",
-                                    page_id
+                                    "Branch page {page_id} contains unsorted elements"
                                 )));
                             }
                         }
@@ -426,8 +423,7 @@ impl<'tx, M: MemoryMap + 'static> TxInner<'tx, M> {
                                 //     page.leaf_elements().iter().map(|l| l.key()).collect();
                                 // let key = leaf.key();
                                 return Err(Error::InvalidDB(format!(
-                                    "Leaf page {} contains unsorted elements",
-                                    page_id
+                                    "Leaf page {page_id} contains unsorted elements"
                                 )));
                             }
                         }
@@ -439,16 +435,14 @@ impl<'tx, M: MemoryMap + 'static> TxInner<'tx, M> {
                     // and we didn't somehow find our way to another one.
                     if page_id != self.meta.freelist_page {
                         return Err(Error::InvalidDB(format!(
-                            "Found Invalid Freelist Page {}",
-                            page_id
+                            "Found Invalid Freelist Page {page_id}"
                         )));
                     }
                     // "visit" all freelist pages (we don't actually care what data is in these pages)
                     for page_id in page.freelist() {
                         if !unused_pages.remove(page_id) {
                             return Err(Error::InvalidDB(format!(
-                                "Page {} from freelist missing from unused_pages",
-                                page_id,
+                                "Page {page_id} from freelist missing from unused_pages",
                             )));
                         }
                     }
@@ -467,8 +461,7 @@ impl<'tx, M: MemoryMap + 'static> TxInner<'tx, M> {
         // If there are any pages left then we have an invalid database.
         if !unused_pages.is_empty() {
             return Err(Error::InvalidDB(format!(
-                "Unreachable pages {:?}",
-                unused_pages,
+                "Unreachable pages {unused_pages:?}",
             )));
         }
         Ok(())

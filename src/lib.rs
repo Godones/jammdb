@@ -139,7 +139,6 @@ pub use db::{OpenOptions, DB};
 pub use errors::*;
 pub use fs::memfile;
 pub use fs::*;
-pub use node::test_split;
 pub use tx::Tx;
 
 #[cfg(test)]

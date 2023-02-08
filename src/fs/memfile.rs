@@ -27,7 +27,7 @@ impl Seek for MemoryFile {
             SeekFrom::Start(l) => self.pos = l as usize,
             SeekFrom::Current(l) => self.pos += l as usize,
             SeekFrom::End(l) => {
-                if l.abs() as usize > self.data.len() {
+                if l.unsigned_abs() as usize > self.data.len() {
                     return Err(core2::io::Error::new(ErrorKind::Other, "seek error"));
                 } else {
                     self.pos += l as usize;
@@ -98,11 +98,11 @@ impl OpenOption for FileOpenOptions {
     /// open file
     fn open<T: ToString + PathLike>(&mut self, path: &T) -> IOResult<File> {
         let file = MemoryFile::open(path);
-        let ans = match file {
+        
+        match file {
             Some(f) => Ok(File::new(Box::new(f))),
             None => Err(core2::io::Error::new(ErrorKind::Other, "open file error")),
-        };
-        ans
+        }
     }
     /// create file
     fn create(&mut self, _: bool) -> &mut Self {
@@ -117,15 +117,15 @@ impl MemoryFile {
         if FILE_S.lock().get(&name.to_string()).is_some() {
             let mut file = FILE_S.lock().get(&name.to_string()).unwrap().clone();
             file.pos = 0;
-            FILE_S.lock().insert(name.to_string().clone(), file.clone());
+            FILE_S.lock().insert(name.to_string(), file.clone());
             return Some(file);
         }
         let file = Self {
-            name: name.to_string().clone(),
+            name: name.to_string(),
             pos: 0,
             data: Vec::new(),
         };
-        FILE_S.lock().insert(name.to_string().clone(), file.clone());
+        FILE_S.lock().insert(name.to_string(), file.clone());
         Some(file)
     }
 }

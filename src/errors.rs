@@ -33,9 +33,9 @@ impl fmt::Display for Error {
             Error::KeyValueMissing => write!(f, "Key / Value pair does not exist"),
             Error::IncompatibleValue => write!(f, "Value not compatible"),
             Error::ReadOnlyTx => write!(f, "Cannot write in a read-only transaction"),
-            Error::Io(e) => write!(f, "IO Error: {}", e),
-            Error::Sync(s) => write!(f, "Sync Error: {}", s),
-            Error::InvalidDB(s) => write!(f, "Invalid DB: {}", s),
+            Error::Io(e) => write!(f, "IO Error: {e}"),
+            Error::Sync(s) => write!(f, "Sync Error: {s}"),
+            Error::InvalidDB(s) => write!(f, "Invalid DB: {s}"),
         }
     }
 }
