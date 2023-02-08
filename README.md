@@ -25,17 +25,6 @@ with multiple lock-free readers and a single concurrent writer. The data is orga
 so random and sequential reads are very fast. The underlying file is [memory mapped](https://en.wikipedia.org/wiki/Memory-mapped_file),
 so reads require no additional memory allocation.
 
-## Supported platforms
-`jammdb` is continuously cross-compiled and tested on the following platforms:
-  * `x86_64-unknown-linux-gnu` (Linux)
-  * `i686-unknown-linux-gnu`
-  * `x86_64-unknown-linux-musl` (Linux MUSL)
-  * `x86_64-apple-darwin` (OSX)
-  * `x86_64-pc-windows-msvc` (Windows)
-  * `i686-pc-windows-msvc`
-  * `x86_64-pc-windows-gnu`
-  * `i686-pc-windows-gnu`
-
 ## For no_std
 
 In order to run this project in the no_std environment, the crates that depend on std have been deleted, and some crates that do not depend on std have been added, such as `hashbrown` and `spin`. `File` and `mmap` are replaced by redefined interfaces. Users need to create types that implement these interfaces. The data structures in the project depend on these types for initialization. The defined interface is located in the `fs` module. For testing, a file that uses memory simulation and implements the above interface is added, located in `fs/memfile`.
