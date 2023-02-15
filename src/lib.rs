@@ -27,12 +27,12 @@
 //! ## Simple put and get
 //! ```no_run
 //! use jammdb::{DB, Data, Error};
-//!
+//! use std::sync::Arc;
+//! use jammdb::memfile::{FakeMap, FileOpenOptions};
 //! fn main() -> Result<(), Error> {
-//! use jammdb::memfile::{FileOpenOptions, Mmap};
 //! {
 //!     // open a new database file
-//!     let db =  DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
+//!     let db =   DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my-database.db")?;
 //!
 //!     // open a writable transaction so we can make changes
 //!     let mut tx = db.tx(true)?;
@@ -47,7 +47,7 @@
 //! }
 //! {
 //!     // open the existing database file
-//!     let db =  DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
+//!     let db =   DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my-database.db")?;
 //!     // open a read-only transaction to get the data
 //!     let mut tx = db.tx(true)?;
 //!     // get the bucket we created in the last transaction
@@ -67,7 +67,8 @@
 //! use serde::{Deserialize, Serialize};
 //! // use rmps crate to serialize structs using the MessagePack format
 //! use rmp_serde::{Deserializer, Serializer};
-//!
+//! use std::sync::Arc;
+//! use jammdb::memfile::{FakeMap, FileOpenOptions};
 //! #[derive(Debug, PartialEq, Deserialize, Serialize)]
 //! struct User {
 //!     username: String,
@@ -75,13 +76,13 @@
 //! }
 //!
 //! fn main() -> Result<(), Error> {
-//!     use jammdb::memfile::{FileOpenOptions, Mmap};let user = User{
+//! let user = User{
 //!         username: "my-user".to_string(),
 //!         password: "my-password".to_string(),
 //!     };
 //! {
 //!     // open a new database file and start a writable transaction
-//!     let db = DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
+//!     let db =  DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my-database.db")?;
 //!     let mut tx = db.tx(true)?;
 //!
 //!     // create a bucket to store users
@@ -96,7 +97,7 @@
 //! }
 //! {
 //!     // open the existing database file
-//!     let db =  DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
+//!     let db =   DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my-database.db")?;
 //!     // open a read-only transaction to get the data
 //!     let mut tx = db.tx(true)?;
 //!     // get the bucket we created in the last transaction

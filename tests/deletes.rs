@@ -1,7 +1,8 @@
-use jammdb::memfile::{FileOpenOptions, Mmap};
+use jammdb::memfile::{FakeMap, FileOpenOptions};
 use jammdb::{Error, OpenOptions};
 use rand::prelude::*;
 use std::collections::HashSet;
+use std::sync::Arc;
 
 mod common;
 
@@ -29,11 +30,11 @@ fn large_deletes() {
 fn test_deletes(highest_int: u64) -> Result<(), Error> {
     let random_file = common::RandomFile::new();
     let mut deleted: HashSet<u64> = HashSet::new();
-    let mut rng = rand::thread_rng();
+    let mut rng = thread_rng();
     {
         let db = OpenOptions::new()
             .strict_mode(true)
-            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
+            .open::<_, FileOpenOptions>(Arc::new(FakeMap), &random_file)?;
         {
             let tx = db.tx(true)?;
             let b = tx.create_bucket("abc")?;
@@ -106,7 +107,7 @@ fn delete_simple_bucket() -> Result<(), Error> {
     let random_file = common::RandomFile::new();
     let db = OpenOptions::new()
         .strict_mode(true)
-        .open::<_, FileOpenOptions, Mmap>(&random_file)?;
+        .open::<_, FileOpenOptions>(Arc::new(FakeMap), &random_file)?;
     {
         let tx = db.tx(true)?;
         let b = tx.create_bucket("abc")?;
@@ -139,7 +140,7 @@ fn delete_nested_bucket() -> Result<(), Error> {
     let random_file = common::RandomFile::new();
     let db = OpenOptions::new()
         .strict_mode(true)
-        .open::<_, FileOpenOptions, Mmap>(&random_file)?;
+        .open::<_, FileOpenOptions>(Arc::new(FakeMap), &random_file)?;
     {
         let tx = db.tx(true)?;
         let b = tx.create_bucket("abc")?;
@@ -177,7 +178,7 @@ fn delete_large_bucket_with_large_nested_buckets() -> Result<(), Error> {
     let random_file = common::RandomFile::new();
     let db = OpenOptions::new()
         .strict_mode(true)
-        .open::<_, FileOpenOptions, Mmap>(&random_file)?;
+        .open::<_, FileOpenOptions>(Arc::new(FakeMap), &random_file)?;
     {
         let tx = db.tx(true)?;
         let b = tx.create_bucket("abc")?;

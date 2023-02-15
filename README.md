@@ -36,11 +36,12 @@ Here are a couple of simple examples to get you started, but you should check ou
 ### Simple put and get
 ```rust
 use jammdb::{DB, Data, Error};
-use jammdb::memfile::{FileOpenOptions, Mmap};
+use std::sync::Arc;
+use jammdb::memfile::{FakeMap, FileOpenOptions};
 fn main() -> Result<(), Error> {
 {
     // open a new database file
-    let db =  DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
+    let db =   DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my-database.db")?;
 
     // open a writable transaction so we can make changes
     let mut tx = db.tx(true)?;
@@ -55,7 +56,7 @@ fn main() -> Result<(), Error> {
 }
 {
     // open the existing database file
-    let db =  DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
+    let db =   DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my-database.db")?;
     // open a read-only transaction to get the data
     let mut tx = db.tx(true)?;
     // get the bucket we created in the last transaction
@@ -71,9 +72,13 @@ fn main() -> Result<(), Error> {
 
 ### Storing structs
 ```rust
-use jammdb::{DB, Data, Error};
+se jammdb::{DB, Data, Error};
 use serde::{Deserialize, Serialize};
-use jammdb::memfile::{FileOpenOptions, Mmap};
+// use rmps crate to serialize structs using the MessagePack format
+use rmp_serde::{Deserializer, Serializer};
+use std::sync::Arc;
+use jammdb::memfile::{FakeMap, FileOpenOptions};
+
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 struct User {
     username: String,
@@ -81,17 +86,17 @@ struct User {
 }
 
 fn main() -> Result<(), Error> {
-    let user = User{
+let user = User{
         username: "my-user".to_string(),
         password: "my-password".to_string(),
     };
 {
     // open a new database file and start a writable transaction
-    let db = DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
-    let tx = db.tx(true)?;
+    let db =  DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my-database.db")?;
+    let mut tx = db.tx(true)?;
 
     // create a bucket to store users
-    let users_bucket = tx.create_bucket("users")?;
+    let mut users_bucket = tx.create_bucket("users")?;
 
     // serialize struct to bytes and store in bucket
     let user_bytes = rmp_serde::to_vec(&user).unwrap();
@@ -102,23 +107,19 @@ fn main() -> Result<(), Error> {
 }
 {
     // open the existing database file
-    let db = DB::<Mmap>::open::<FileOpenOptions,_>("my-database.db")?;
+    let db =   DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my-database.db")?;
     // open a read-only transaction to get the data
-    let tx = db.tx(true)?;
+    let mut tx = db.tx(true)?;
     // get the bucket we created in the last transaction
     let users_bucket = tx.get_bucket("users")?;
     // get the key / value pair we inserted into the bucket
-    if let Some(data) = users_bucket.get("user1") {
-        if data.is_kv() {
-            let kv = data.kv();
-            // deserialize into a user struct
-            let db_user: User = rmp_serde::from_slice(kv.value()).unwrap();
-            assert_eq!(db_user, user);
-        }
-    }
+    if let Some(data) = users_bucket.get(b"user1") {
+        // deserialize into a user struct
+        let db_user: User = rmp_serde::from_slice(data.kv().value()).unwrap();
+        assert_eq!(db_user, user);
 }
     Ok(())
-}
+}//
 ```
 
 ## License

@@ -1,7 +1,8 @@
 use crate::errors::Result;
-use crate::fs::MemoryMap;
+
 use crate::meta::Meta;
 use crate::node::{Node, NodeData, NodeType};
+use crate::Mmap;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::mem::size_of;
@@ -14,12 +15,12 @@ pub(crate) type PageType = u8;
 
 #[derive(Clone)]
 pub(crate) struct Pages {
-    pub(crate) data: Arc<dyn MemoryMap<Target = [u8]>>,
+    pub(crate) data: Arc<Mmap>,
     pub(crate) pagesize: u64,
 }
 
 impl Pages {
-    pub fn new(data: Arc<dyn MemoryMap<Target = [u8]>>, pagesize: u64) -> Pages {
+    pub fn new(data: Arc<Mmap>, pagesize: u64) -> Pages {
         Pages { data, pagesize }
     }
 

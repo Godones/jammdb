@@ -16,8 +16,9 @@ use crate::ToBytes;
 /// # use jammdb::Error;
 ///
 /// # fn main() -> Result<(), Error> {
-/// use jammdb::memfile::{FileOpenOptions, Mmap};
-/// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
+/// use std::sync::Arc;
+/// use jammdb::memfile::{FakeMap, FileOpenOptions, };
+/// let db =  DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my.db")?;
 /// let mut tx = db.tx(true)?;
 /// let bucket = tx.create_bucket("my-bucket")?;
 ///
@@ -84,8 +85,9 @@ impl<'b, 'tx> From<Leaf<'tx>> for Data<'b, 'tx> {
 /// # use jammdb::Error;
 ///
 /// # fn main() -> Result<(), Error> {
-/// use jammdb::memfile::{FileOpenOptions, Mmap};
-/// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
+/// use std::sync::Arc;
+/// use jammdb::memfile::{FakeMap, FileOpenOptions, };
+/// let db =  DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my.db")?;
 /// let mut tx = db.tx(true)?;
 /// let bucket = tx.create_bucket("my-bucket")?;
 ///
@@ -145,8 +147,9 @@ impl<'b, 'tx> ToBytes<'tx> for &BucketName<'b, 'tx> {
 /// # use jammdb::Error;
 ///
 /// # fn main() -> Result<(), Error> {
-/// use jammdb::memfile::{FileOpenOptions, Mmap};
-/// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
+/// use std::sync::Arc;
+/// use jammdb::memfile::{FakeMap, FileOpenOptions, };
+/// let db =  DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my.db")?;
 /// let mut tx = db.tx(false)?;
 /// let bucket = tx.get_bucket("my-bucket")?;
 ///

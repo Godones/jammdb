@@ -1,9 +1,10 @@
 use bytes::{BufMut, Bytes, BytesMut};
-use jammdb::{Bucket, Error, File, MemoryMap, OpenOption, OpenOptions, PathLike, Tx};
+use jammdb::{Bucket, Error, File, OpenOption, OpenOptions, PathLike, Tx};
 use rand::{distributions::Alphanumeric, prelude::*};
 use std::collections::BTreeMap;
 use std::io::BufReader;
 use std::io::{BufRead, Write};
+use std::sync::Arc;
 
 pub struct SizeParams {
     pub min: usize,
@@ -35,7 +36,7 @@ impl TestDetails {
         let db = OpenOptions::new()
             .pagesize(self.page_size as u64)
             .strict_mode(true)
-            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
+            .open::<_, FileOpenOptions>(Arc::new(FakeMap), &random_file)?;
 
         let mut instructions = Instructions::new(self.name)?;
 
@@ -233,14 +234,14 @@ impl FakeNode {
 fn rand_bytes(size: usize) -> Bytes {
     let buf = BytesMut::new();
     let mut w = buf.writer();
-    for byte in rand::thread_rng().sample_iter(&Alphanumeric).take(size) {
+    for byte in thread_rng().sample_iter(&Alphanumeric).take(size) {
         let _ = w.write(&[byte]);
     }
 
     w.into_inner().freeze()
 }
 
-use jammdb::memfile::{FileOpenOptions, Mmap};
+use jammdb::memfile::{FakeMap, FileOpenOptions};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
@@ -272,7 +273,7 @@ impl Instructions {
         let f = if record {
             while filename.is_none() {
                 let suffix: String = std::str::from_utf8(
-                    rand::thread_rng()
+                    thread_rng()
                         .sample_iter(&Alphanumeric)
                         .take(8)
                         .collect::<Vec<u8>>()
@@ -349,7 +350,7 @@ pub fn log_playback(name: &str) -> Result<(), Error> {
 
     let db = OpenOptions::new()
         .pagesize(1024)
-        .open::<_, FileOpenOptions, Mmap>(&random_file)?;
+        .open::<_, FileOpenOptions>(Arc::new(FakeMap), &random_file)?;
     let mut root: FakeNode = FakeNode::Bucket(BTreeMap::new());
     // let mut data_b: &mut FakeNode = &mut data;
 
@@ -429,15 +430,14 @@ pub fn log_playback(name: &str) -> Result<(), Error> {
     Ok(())
 }
 
-fn mutate_buckets<'tx, F, M>(
-    tx: &Tx<'tx, M>,
+fn mutate_buckets<'tx, F>(
+    tx: &Tx<'tx>,
     root: &mut FakeNode,
     path: &Vec<Bytes>,
     f: F,
 ) -> Result<(), Error>
 where
     F: Fn(&Bucket, &mut BTreeMap<Bytes, FakeNode>) -> Result<(), Error>,
-    M: MemoryMap + 'static,
 {
     assert!(!path.is_empty());
     let mut b = tx.get_or_create_bucket(&path[0])?;

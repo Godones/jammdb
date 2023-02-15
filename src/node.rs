@@ -535,12 +535,13 @@ impl<'n> Node<'n> {
 
 #[cfg(test)]
 mod test {
-    use crate::memfile::{FileOpenOptions, Mmap};
+    use crate::memfile::{FakeMap, FileOpenOptions};
     use crate::{
         testutil::{rand_bytes, RandomFile},
         OpenOptions,
     };
     use std::collections::HashMap;
+    use std::sync::Arc;
 
     use super::*;
 
@@ -549,7 +550,7 @@ mod test {
         let random_file = RandomFile::new();
         let db = OpenOptions::new()
             .pagesize(1024)
-            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
+            .open::<_, FileOpenOptions>(Arc::new(FakeMap), &random_file)?;
         // Test split
         {
             let tx = db.tx(true)?;
@@ -611,4 +612,3 @@ mod test {
         Ok(())
     }
 }
-

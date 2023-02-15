@@ -1,7 +1,6 @@
-use std::fmt::format;
-use jammdb::memfile::{FileOpenOptions, Mmap};
+use jammdb::memfile::{FakeMap, FileOpenOptions};
 use jammdb::{Error, DB};
-
+use std::sync::Arc;
 
 fn main() -> Result<(), Error> {
     let path = std::path::Path::new("my-database.db");
@@ -12,7 +11,7 @@ fn main() -> Result<(), Error> {
     let old_name = String::from("old");
     let new_name = String::from("new");
     // open a new database file
-    let db = DB::<Mmap>::open::<FileOpenOptions, _>("my-database.db")?;
+    let db = DB::open::<FileOpenOptions, _>(Arc::new(FakeMap), "my-database.db")?;
 
     {
         let tx = db.tx(true)?;
@@ -31,8 +30,7 @@ fn main() -> Result<(), Error> {
         let old = r_bucket.get_kv(old_name.to_string() + "-f");
         let new = r_bucket.get_kv(new_name.to_string() + "-f");
 
-
-        let ans = if old.is_some() {
+        let _ans = if old.is_some() {
             if new.is_some() {
                 Err(Error::InvalidDB("old file not found".to_string()))
             } else {
@@ -55,7 +53,6 @@ fn main() -> Result<(), Error> {
         } else {
             Err(Error::InvalidDB("old file not found".to_string()))
         };
-
     }
 
     println!("test jammdb ok");

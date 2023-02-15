@@ -2,12 +2,12 @@ use alloc::string::ToString;
 use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
-use core::marker::PhantomData;
+
 use core::ops::DerefMut;
 use spin::{Mutex, RwLock};
 
 use crate::fs::{File, MemoryMap, OpenOption, PathLike};
-use crate::{bucket::BucketMeta, errors::Result, page::Page, tx::Tx};
+use crate::{bucket::BucketMeta, errors::Result, page::Page, tx::Tx, Mmap};
 use crate::{freelist::Freelist, meta::Meta};
 
 const MAGIC_VALUE: u32 = 0x00AB_CDEF;
@@ -34,11 +34,12 @@ const DEFAULT_NUM_PAGES: usize = 32;
 /// # use jammdb::Error;
 ///
 /// # fn main() -> Result<(), Error> {
-/// use jammdb::memfile::{FileOpenOptions, Mmap};
+/// use std::sync::Arc;
+/// use jammdb::memfile::{FakeMap, FileOpenOptions};
 /// let db = OpenOptions::new()
 ///     .pagesize(4096)
 ///     .num_pages(32)
-///     .open::<_,FileOpenOptions,Mmap>("my.db")?;
+///     .open::<_,FileOpenOptions>(Arc::new(FakeMap),"my.db")?;
 ///
 /// // do whatever you want with the DB
 /// # Ok(())
@@ -111,17 +112,18 @@ impl OpenOptions {
     /// # Panics
     ///
     /// Will panic if the pagesize the database is opened with is not the same as the pagesize it was created with.
-    pub fn open<T: ToString + PathLike, O: OpenOption, M: MemoryMap + 'static>(
+    pub fn open<T: ToString + PathLike, O: OpenOption>(
         self,
+        mmap: Arc<dyn MemoryMap>,
         path: T,
-    ) -> Result<DB<M>> {
+    ) -> Result<DB> {
         let file = if !path.exists() {
             init_file::<_, O>(&path, self.pagesize, self.num_pages)?
         } else {
             O::new().read(true).write(true).open(&path)?
         };
 
-        let db = DBInner::<M>::open(file, self.pagesize, self.strict_mode)?;
+        let db = DBInner::open(mmap, file, self.pagesize, self.strict_mode)?;
         Ok(DB {
             inner: Arc::new(db),
         })
@@ -150,11 +152,11 @@ impl Default for OpenOptions {
 /// to have concurrent transactions (you're really just cloning an [`Arc`] so it's pretty cheap).
 /// **Do not** try to open multiple transactions in the same thread, you're pretty likely to cause a deadlock.
 #[derive(Clone)]
-pub struct DB<M> {
-    pub(crate) inner: Arc<DBInner<M>>,
+pub struct DB {
+    pub(crate) inner: Arc<DBInner>,
 }
 
-impl<M: MemoryMap + 'static> DB<M> {
+impl DB {
     /// Opens a database using the default [`OpenOptions`].
     ///
     /// Same as calling `OpenOptions::new().open(path)`.
@@ -167,22 +169,26 @@ impl<M: MemoryMap + 'static> DB<M> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// use jammdb::memfile::{FileOpenOptions, Mmap};
-    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
+    /// use std::sync::Arc;
+    /// use jammdb::memfile::{FakeMap, FileOpenOptions};
+    /// let db = DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my.db")?;
     ///
     /// // do whatever you want with the DB
     /// # Ok(())
     /// # }
     /// ```
-    pub fn open<O: OpenOption, T: ToString + PathLike>(path: T) -> Result<Self> {
-        OpenOptions::new().open::<T, O, M>(path)
+    pub fn open<O: OpenOption, T: ToString + PathLike>(
+        mmap: Arc<dyn MemoryMap>,
+        path: T,
+    ) -> Result<Self> {
+        OpenOptions::new().open::<T, O>(mmap, path)
     }
 
     /// Creates a [`Tx`].
     /// This transaction is either read-only or writable depending on the `writable` parameter.
     /// Please read the docs on a [`Tx`] for more details.
-    pub fn tx(&self, writable: bool) -> Result<Tx<M>> {
-        Tx::<M>::new(self, writable)
+    pub fn tx(&self, writable: bool) -> Result<Tx> {
+        Tx::new(self, writable)
     }
 
     /// Returns the database's pagesize.
@@ -195,25 +201,32 @@ impl<M: MemoryMap + 'static> DB<M> {
         self.tx(false)?.check()
     }
 }
-pub(crate) struct DBInner<M> {
-    pub(crate) data: Mutex<Arc<M>>,
+pub(crate) struct DBInner {
+    pub(crate) generator: Arc<dyn MemoryMap>,
+    pub(crate) data: Mutex<Arc<Mmap>>,
     pub(crate) mmap_lock: RwLock<()>,
     pub(crate) freelist: Mutex<Freelist>,
     pub(crate) file: Mutex<File>,
     pub(crate) open_ro_txs: Mutex<Vec<u64>>,
     pub(crate) strict_mode: bool,
     pub(crate) pagesize: u64,
-    pub(crate) _marker: PhantomData<M>,
 }
 
-impl<M: MemoryMap + 'static> DBInner<M> {
-    pub(crate) fn open(mut file: File, pagesize: u64, strict_mode: bool) -> Result<Self> {
+impl DBInner {
+    pub(crate) fn open(
+        mmap: Arc<dyn MemoryMap>,
+        mut file: File,
+        pagesize: u64,
+        strict_mode: bool,
+    ) -> Result<Self> {
         file.lock_exclusive()?;
-        let mmap = { Arc::new(M::map(file.deref_mut())?) };
+        let data = mmap.map(file.deref_mut())?;
+        let data = { Arc::new(data) };
 
-        let mmap = Mutex::new(mmap);
+        let data = Mutex::new(data);
         let db = DBInner {
-            data: mmap,
+            generator: mmap,
+            data,
             mmap_lock: RwLock::new(()),
             freelist: Mutex::new(Freelist::new()),
 
@@ -222,7 +235,6 @@ impl<M: MemoryMap + 'static> DBInner<M> {
 
             pagesize,
             strict_mode,
-            _marker: PhantomData,
         };
 
         {
@@ -238,15 +250,11 @@ impl<M: MemoryMap + 'static> DBInner<M> {
         Ok(db)
     }
 
-    pub(crate) fn resize(
-        &self,
-        file: &mut File,
-        new_size: u64,
-    ) -> Result<Arc<dyn MemoryMap<Target = [u8]>>> {
+    pub(crate) fn resize(&self, file: &mut File, new_size: u64) -> Result<Arc<Mmap>> {
         file.allocate(new_size)?;
         let _lock = self.mmap_lock.write();
         let mut data = self.data.lock();
-        let mmap = { M::map((*file).deref_mut())? };
+        let mmap = self.generator.map((*file).deref_mut())?;
         *data = Arc::new(mmap);
         Ok(data.clone())
     }
@@ -357,7 +365,7 @@ fn init_file<T: ToString + PathLike, O: OpenOption>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::memfile::{FileOpenOptions, Mmap};
+    use crate::memfile::{FakeMap, FileOpenOptions};
     use crate::testutil::RandomFile;
 
     #[test]
@@ -368,7 +376,7 @@ mod tests {
             let db = OpenOptions::new()
                 .pagesize(5000)
                 .num_pages(100)
-                .open::<_, FileOpenOptions, Mmap>(&random_file)
+                .open::<_, FileOpenOptions>(Arc::new(FakeMap), &random_file)
                 .unwrap();
             assert_eq!(db.pagesize(), 5000);
         }
@@ -381,7 +389,7 @@ mod tests {
             let db = OpenOptions::new()
                 .pagesize(5000)
                 .num_pages(100)
-                .open::<_, FileOpenOptions, Mmap>(&random_file)
+                .open::<_, FileOpenOptions>(Arc::new(FakeMap), &random_file)
                 .unwrap();
             assert_eq!(db.pagesize(), 5000);
         }
@@ -408,10 +416,10 @@ mod tests {
             let db = OpenOptions::new()
                 .pagesize(5000)
                 .num_pages(100)
-                .open::<_, FileOpenOptions, Mmap>(&random_file)
+                .open::<_, FileOpenOptions>(Arc::new(FakeMap), &random_file)
                 .unwrap();
             assert_eq!(db.pagesize(), 5000);
         }
-        DB::<Mmap>::open::<FileOpenOptions, _>(&random_file).unwrap();
+        DB::open::<FileOpenOptions, _>(Arc::new(FakeMap), &random_file).unwrap();
     }
 }

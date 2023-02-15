@@ -2,7 +2,8 @@ use crate::fs::{DbFile, File, FileExt, IOResult, MemoryMap, MetaData, OpenOption
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use core::ops::Deref;
+
+use crate::Mmap;
 use core2::io::{ErrorKind, Read, Seek, SeekFrom, Write};
 use hashbrown::HashMap;
 use lazy_static::lazy_static;
@@ -98,7 +99,7 @@ impl OpenOption for FileOpenOptions {
     /// open file
     fn open<T: ToString + PathLike>(&mut self, path: &T) -> IOResult<File> {
         let file = MemoryFile::open(path);
-        
+
         match file {
             Some(f) => Ok(File::new(Box::new(f))),
             None => Err(core2::io::Error::new(ErrorKind::Other, "open file error")),
@@ -192,28 +193,16 @@ impl PathLike for &String {
 
 /// memory map
 #[derive(Clone)]
-pub struct Mmap {
-    size: usize,
-    addr: usize,
-}
+pub struct FakeMap;
 
-impl MemoryMap for Mmap {
+impl MemoryMap for FakeMap {
     /// map
-    fn map(file: &mut dyn DbFile) -> Result<Self, core2::io::Error> {
+    fn map(&self, file: &mut dyn DbFile) -> Result<Mmap, core2::io::Error> {
         //info!("[{}/{}] map file: {:#x}", file!(), line!(), file.size());
         let map = Mmap {
             size: file.size(),
             addr: file.addr(),
         };
         Ok(map)
-    }
-}
-
-impl Deref for Mmap {
-    type Target = [u8];
-
-    #[inline]
-    fn deref(&self) -> &[u8] {
-        unsafe { core::slice::from_raw_parts(self.addr as *const u8, self.size) }
     }
 }

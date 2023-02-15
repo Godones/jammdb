@@ -9,7 +9,6 @@ use alloc::string::ToString;
 use core::fmt::{Debug, Display};
 use core::ops::{Deref, DerefMut};
 use core2::io::{Read, Seek, Write};
-
 pub type IOResult<T> = core2::io::Result<T>;
 
 pub struct File {
@@ -71,8 +70,20 @@ pub trait PathLike: Display + Debug {
 
 pub trait DbFile: Seek + Write + Read + FileExt {}
 
-pub trait MemoryMap: Deref<Target = [u8]> {
-    fn map(file: &mut dyn DbFile) -> IOResult<Self>
-    where
-        Self: Sized;
+pub trait MemoryMap {
+    fn map(&self, file: &mut dyn DbFile) -> IOResult<Mmap>;
+}
+
+pub struct Mmap {
+    size: usize,
+    addr: usize,
+}
+
+impl Deref for Mmap {
+    type Target = [u8];
+
+    #[inline]
+    fn deref(&self) -> &[u8] {
+        unsafe { core::slice::from_raw_parts(self.addr as *const u8, self.size) }
+    }
 }

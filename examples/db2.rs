@@ -1,5 +1,6 @@
-use jammdb::{DB, Error};
-use jammdb::memfile::{FileOpenOptions, Mmap};
+use jammdb::memfile::{FakeMap, FileOpenOptions};
+use jammdb::{Error, DB};
+use std::sync::Arc;
 
 fn main() -> Result<(), Error> {
     let path = std::path::Path::new("my-database.db");
@@ -7,7 +8,8 @@ fn main() -> Result<(), Error> {
         std::fs::remove_file(path).unwrap();
     }
     // open a new database file
-    let db = DB::<Mmap>::open::<FileOpenOptions, _>("my-database.db")?;
+    let db = DB::open::<FileOpenOptions, _>(Arc::new(FakeMap), "my-database.db")?;
+
     {
         let tx = db.tx(true)?;
         let bucket = tx.create_bucket("root")?;

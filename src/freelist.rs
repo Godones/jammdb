@@ -92,10 +92,7 @@ impl Freelist {
 
     // adds the page to the transaction's set of free pages
     pub(crate) fn free(&mut self, tx_id: u64, page_id: PageID) {
-        debug_assert!(
-            page_id > 1,
-            "cannot free page {page_id}, reserved for meta"
-        );
+        debug_assert!(page_id > 1, "cannot free page {page_id}, reserved for meta");
         let pages = self.pending_pages.entry(tx_id).or_insert_with(Vec::new);
         pages.push(page_id);
     }
@@ -171,9 +168,10 @@ impl Freelist {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::memfile::{FileOpenOptions, Mmap};
+    use crate::memfile::{FakeMap, FileOpenOptions};
     use crate::{errors::Result, testutil::RandomFile, OpenOptions};
     use alloc::vec;
+    use std::sync::Arc;
 
     fn freelist_from_vec(v: Vec<PageID>) -> Freelist {
         let mut freelist = Freelist {
@@ -279,7 +277,7 @@ mod tests {
         let db = OpenOptions::new()
             .pagesize(1024)
             .num_pages(4)
-            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
+            .open::<_, FileOpenOptions>(Arc::new(FakeMap), &random_file)?;
         let tx = db.tx(false)?;
         let tx = tx.inner.borrow_mut();
         let mut freelist = tx.freelist.borrow_mut();
@@ -314,7 +312,7 @@ mod tests {
         let db = OpenOptions::new()
             .pagesize(1024)
             .num_pages(100)
-            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
+            .open::<_, FileOpenOptions>(Arc::new(FakeMap), &random_file)?;
         let tx = db.tx(false)?;
         let tx = tx.inner.borrow_mut();
         let mut freelist = tx.freelist.borrow_mut();
@@ -353,7 +351,7 @@ mod tests {
         let db = OpenOptions::new()
             .pagesize(1024)
             .num_pages(100)
-            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
+            .open::<_, FileOpenOptions>(Arc::new(FakeMap), &random_file)?;
         let tx = db.tx(false)?;
         let tx = tx.inner.borrow_mut();
         let mut freelist = tx.freelist.borrow_mut();

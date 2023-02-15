@@ -32,8 +32,9 @@ use core::{
 /// # use jammdb::Error;
 ///
 /// # fn main() -> Result<(), Error> {
-/// use jammdb::memfile::{FileOpenOptions, Mmap};
-/// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;;
+/// use std::sync::Arc;
+/// use jammdb::memfile::{FakeMap, FileOpenOptions, };
+/// let db = DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my.db")?;
 /// let mut tx = db.tx(false)?;
 /// let bucket = tx.get_bucket("my-bucket")?;
 ///
@@ -371,13 +372,14 @@ where
 mod tests {
     use crate::db::DB;
     use crate::errors::Result;
-    use crate::memfile::{FileOpenOptions, Mmap};
+    use crate::memfile::{FakeMap, FileOpenOptions};
     use crate::testutil::RandomFile;
+    use std::sync::Arc;
 
     #[test]
     fn test_iters() -> Result<()> {
-        let random_file = RandomFile::new();
-        let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file)?;
+        let _random_file = RandomFile::new();
+        let db = DB::open::<FileOpenOptions, _>(Arc::new(FakeMap), "my.db")?;
         // Put in some intermixed key / value pairs and sub-buckets.
         {
             let tx = db.tx(true)?;
@@ -438,7 +440,7 @@ mod tests {
     #[should_panic]
     fn deleted_bucket_create_cursor() {
         let random_file = RandomFile::new();
-        let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file).unwrap();
+        let db = DB::open::<FileOpenOptions, _>(Arc::new(FakeMap), &random_file).unwrap();
         let tx = db.tx(true).unwrap();
         let b = tx.create_bucket("abc").unwrap();
         tx.delete_bucket("abc").unwrap();
@@ -450,7 +452,7 @@ mod tests {
     #[should_panic]
     fn deleted_bucket_create_iterate() {
         let random_file = RandomFile::new();
-        let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file).unwrap();
+        let db = DB::open::<FileOpenOptions, _>(Arc::new(FakeMap), &random_file).unwrap();
         let tx = db.tx(true).unwrap();
         let b = tx.create_bucket("abc").unwrap();
         let mut c = b.cursor();

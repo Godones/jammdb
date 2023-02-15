@@ -41,8 +41,9 @@ use crate::{
 /// # use jammdb::Error;
 ///
 /// # fn main() -> Result<(), Error> {
-/// use jammdb::memfile::{FileOpenOptions, Mmap};
-/// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
+/// use std::sync::Arc;
+/// use jammdb::memfile::{FakeMap, FileOpenOptions, };
+/// let db = DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my.db")?;
 /// let mut tx = db.tx(true)?;
 ///
 /// // create a root-level bucket
@@ -91,8 +92,9 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// use jammdb::memfile::{FileOpenOptions, Mmap};
-    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
+    /// use std::sync::Arc;
+    /// use jammdb::memfile::{FakeMap, FileOpenOptions, };
+    /// let db =  DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my.db")?;;
     /// let mut tx = db.tx(true)?;
     ///
     /// // create a root-level bucket
@@ -154,8 +156,9 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// use jammdb::memfile::{FileOpenOptions, Mmap};
-    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
+    /// use std::sync::Arc;
+    /// use jammdb::memfile::{FakeMap, FileOpenOptions, };
+    /// let db =  DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my.db")?;;
     /// let mut tx = db.tx(false)?;
     ///
     /// let bucket = tx.get_bucket("my-bucket")?;
@@ -193,8 +196,9 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// use jammdb::memfile::{FileOpenOptions, Mmap};
-    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
+    /// use std::sync::Arc;
+    /// use jammdb::memfile::{FakeMap, FileOpenOptions};
+    /// let db =  DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my.db")?;;
     /// let mut tx = db.tx(false)?;
     ///
     /// // get a root-level bucket
@@ -236,8 +240,9 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// use jammdb::memfile::{FileOpenOptions, Mmap};
-    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
+    /// use std::sync::Arc;
+    /// use jammdb::memfile::{FakeMap, FileOpenOptions, };
+    /// let db =  DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my.db")?;;
     /// let mut tx = db.tx(true)?;
     ///
     /// // create a root-level bucket
@@ -281,8 +286,9 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// use jammdb::memfile::{FileOpenOptions, Mmap};
-    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
+    /// use std::sync::Arc;
+    /// use jammdb::memfile::{FakeMap, FileOpenOptions};
+    /// let db =  DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my.db")?;;
     /// {
     ///     let mut tx = db.tx(true)?;
     ///     // create a root-level bucket
@@ -329,8 +335,9 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// use jammdb::memfile::{FileOpenOptions, Mmap};
-    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
+    /// use std::sync::Arc;
+    /// use jammdb::memfile::{FakeMap, FileOpenOptions};
+    /// let db =  DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my.db")?;;
     /// let mut tx = db.tx(true)?;
     ///
     /// // get a root-level bucket
@@ -365,8 +372,9 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     /// # use jammdb::Error;
     ///
     /// # fn main() -> Result<(), Error> {
-    /// use jammdb::memfile::{FileOpenOptions, Mmap};
-    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
+    /// use std::sync::Arc;
+    /// use jammdb::memfile::{FakeMap, FileOpenOptions, };
+    /// let db =  DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my.db")?;;
     /// let mut tx = db.tx(false)?;
     ///
     /// let bucket = tx.get_bucket("my-bucket")?;
@@ -400,11 +408,12 @@ impl<'b, 'tx> Bucket<'b, 'tx> {
     ///
     /// ```no_run
     /// use jammdb::{DB};
-    /// # use jammdb::Error;
-    ///
+    /// use std::sync::Arc;
+    /// use jammdb::Error;
+    /// use jammdb::memfile::{FileOpenOptions, };
+    /// use jammdb::memfile::FakeMap;
     /// # fn main() -> Result<(), Error> {
-    /// use jammdb::memfile::{FileOpenOptions, Mmap};
-    /// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
+    /// let db =  DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my.db")?;;
     /// let mut tx = db.tx(true)?;
     ///
     /// // create a root-level bucket
@@ -998,10 +1007,10 @@ impl From<&[u8]> for BucketMeta {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
-    use crate::memfile::{FileOpenOptions, Mmap};
+    use crate::memfile::{FakeMap, FileOpenOptions};
     use crate::{testutil::RandomFile, DB};
+    use std::sync::Arc;
 
     #[test]
     fn bytes() {
@@ -1020,7 +1029,7 @@ mod tests {
             #[should_panic(expected = $expected_err)]
     		fn $name() {
                 let random_file = RandomFile::new();
-                let db = DB::<Mmap>::open::<FileOpenOptions,_>(&random_file).unwrap();
+                let db = DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),&random_file).unwrap();
                 let tx = db.tx(true).unwrap();
                 let b = tx.create_bucket("abc").unwrap();
                 tx.delete_bucket("abc").unwrap();
@@ -1075,7 +1084,7 @@ mod tests {
     		#[test]
     		fn $name() -> Result<()> {
                 let random_file = RandomFile::new();
-                let db = DB::<Mmap>::open::<FileOpenOptions,_>(&random_file)?;
+                let db = DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),&random_file)?;
                 {
 
                     let tx = db.tx(true)?;
@@ -1156,7 +1165,7 @@ mod tests {
     #[test]
     fn test_range() -> Result<()> {
         let random_file = RandomFile::new();
-        let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file)?;
+        let db = DB::open::<FileOpenOptions, _>(Arc::new(FakeMap), &random_file)?;
         {
             let tx = db.tx(true)?;
             let b = tx.create_bucket("abc")?;

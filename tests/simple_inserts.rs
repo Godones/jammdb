@@ -1,6 +1,7 @@
-use jammdb::memfile::{FileOpenOptions, Mmap};
+use jammdb::memfile::{FakeMap, FileOpenOptions};
 use jammdb::{Bucket, Data, Error, OpenOptions, DB};
 use rand::prelude::*;
+use std::sync::Arc;
 
 mod common;
 
@@ -36,11 +37,11 @@ fn large_insert() -> Result<(), Error> {
 
 fn test_insert(mut values: Vec<u64>) -> Result<(), Error> {
     let random_file = common::RandomFile::new();
-    let mut rng = rand::thread_rng();
+    let mut rng = thread_rng();
     {
         let db = OpenOptions::new()
             .strict_mode(true)
-            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
+            .open::<_, FileOpenOptions>(Arc::new(FakeMap), &random_file)?;
         {
             let tx = db.tx(true)?;
             let b = tx.create_bucket("abc")?;
@@ -64,7 +65,7 @@ fn test_insert(mut values: Vec<u64>) -> Result<(), Error> {
         }
     }
     {
-        let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file.path)?;
+        let db = DB::open::<FileOpenOptions, _>(Arc::new(FakeMap), &random_file.path)?;
         let tx = db.tx(false)?;
         let b = tx.get_bucket("abc")?;
         // check after re-opening file
@@ -73,7 +74,7 @@ fn test_insert(mut values: Vec<u64>) -> Result<(), Error> {
         let missing_key = (values.len() + 1) as u64;
         assert!(b.get(missing_key.to_be_bytes()).is_none());
     }
-    let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file.path)?;
+    let db = DB::open::<FileOpenOptions, _>(Arc::new(FakeMap), &random_file.path)?;
     db.check()
 }
 

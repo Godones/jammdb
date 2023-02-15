@@ -1,4 +1,4 @@
-use crate::fs::{File, MemoryMap};
+use crate::fs::File;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use alloc::{format, vec};
@@ -58,8 +58,9 @@ impl<'tx> TxLock<'tx> {
 /// # use jammdb::Error;
 ///
 /// # fn main() -> Result<(), Error> {
-/// # use jammdb::memfile::{FileOpenOptions, Mmap};
-/// let db = DB::<Mmap>::open::<FileOpenOptions,_>("my.db")?;
+/// # use std::sync::Arc;
+/// use jammdb::memfile::{FakeMap, FileOpenOptions};
+/// let db =  DB::open::<FileOpenOptions,_>(Arc::new(FakeMap),"my.db")?;;
 /// // create a read-only transaction
 /// let mut tx1 = db.tx(false)?;
 /// // create a writable transcation
@@ -94,12 +95,12 @@ impl<'tx> TxLock<'tx> {
 /// <sup>2</sup> Keep in mind that long running read-only transactions will prevent the database from
 /// reclaiming old pages and your database may increase in disk size quickly if you're writing lots of data,
 /// so it's a good idea to keep transactions short.
-pub struct Tx<'tx, M> {
-    pub(crate) inner: RefCell<TxInner<'tx, M>>,
+pub struct Tx<'tx> {
+    pub(crate) inner: RefCell<TxInner<'tx>>,
 }
 
-pub(crate) struct TxInner<'tx, M> {
-    pub(crate) db: &'tx DB<M>,
+pub(crate) struct TxInner<'tx> {
+    pub(crate) db: &'tx DB,
     pub(crate) lock: TxLock<'tx>,
     pub(crate) root: Rc<RefCell<InnerBucket<'tx>>>,
     pub(crate) meta: Meta,
@@ -108,8 +109,8 @@ pub(crate) struct TxInner<'tx, M> {
     num_freelist_pages: u64,
 }
 
-impl<'tx, M: MemoryMap + 'static> Tx<'tx, M> {
-    pub(crate) fn new(db: &'tx DB<M>, writable: bool) -> Result<Tx<'tx, M>> {
+impl<'tx> Tx<'tx> {
+    pub(crate) fn new(db: &'tx DB, writable: bool) -> Result<Tx<'tx>> {
         let lock = match writable {
             true => TxLock::Rw(db.inner.file.lock()),
             false => TxLock::Ro(db.inner.mmap_lock.read()),
@@ -277,7 +278,7 @@ impl<'tx, M: MemoryMap + 'static> Tx<'tx, M> {
     }
 }
 
-impl<'tx, M: MemoryMap + 'static> TxInner<'tx, M> {
+impl<'tx> TxInner<'tx> {
     fn write_data(&mut self, freelist: &mut TxFreelist) -> Result<()> {
         if let TxLock::Rw(file) = &mut self.lock {
             // Write the freelist to a new page
@@ -468,7 +469,7 @@ impl<'tx, M: MemoryMap + 'static> TxInner<'tx, M> {
     }
 }
 
-impl<'tx, M> Drop for TxInner<'tx, M> {
+impl<'tx> Drop for TxInner<'tx> {
     fn drop(&mut self) {
         if !self.lock.writable() {
             let mut open_txs = self.db.inner.open_ro_txs.lock();
@@ -485,14 +486,15 @@ impl<'tx, M> Drop for TxInner<'tx, M> {
 mod tests {
     use super::*;
     use crate::db::{OpenOptions, DB};
-    use crate::memfile::{FileOpenOptions, Mmap};
+    use crate::memfile::{FakeMap, FileOpenOptions};
     use crate::testutil::RandomFile;
     use core::mem::size_of;
+    use std::sync::Arc;
 
     #[test]
     fn test_ro_txs() -> Result<()> {
         let random_file = RandomFile::new();
-        let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file)?;
+        let db = DB::open::<FileOpenOptions, _>(Arc::new(FakeMap), &random_file)?;
 
         {
             let tx = db.tx(true)?;
@@ -518,7 +520,7 @@ mod tests {
             .pagesize(1024)
             // make sure we have plenty of pages so we don't have to resize while the read-only tx is open
             .num_pages(10)
-            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
+            .open::<_, FileOpenOptions>(Arc::new(FakeMap), &random_file)?;
         {
             // create a read-only tx
             let tx = db.tx(false)?;

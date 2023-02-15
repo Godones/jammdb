@@ -1,6 +1,7 @@
-use jammdb::memfile::{FileOpenOptions, Mmap};
+use jammdb::memfile::{FakeMap, FileOpenOptions};
 use jammdb::{Bucket, Data, Error, OpenOptions, DB};
 use rand::prelude::*;
+use std::sync::Arc;
 
 mod common;
 
@@ -122,13 +123,13 @@ fn cursor_seek() -> Result<(), Error> {
     {
         let db = OpenOptions::new()
             .strict_mode(true)
-            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
+            .open::<_, FileOpenOptions>(Arc::new(FakeMap), &random_file)?;
         {
             let tx = db.tx(true)?;
             let b = tx.create_bucket("abc")?;
             {
                 let mut random_fruits = Vec::from(fruits.as_slice());
-                let mut rng = rand::thread_rng();
+                let mut rng = thread_rng();
                 random_fruits.shuffle(&mut rng);
                 // randomly insert the fruits into the bucket
                 for fruit in random_fruits.iter() {
@@ -148,7 +149,7 @@ fn cursor_seek() -> Result<(), Error> {
     {
         let db = OpenOptions::new()
             .strict_mode(true)
-            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
+            .open::<_, FileOpenOptions>(Arc::new(FakeMap), &random_file)?;
         {
             let tx = db.tx(false)?;
             let b = tx.get_bucket("abc")?;
@@ -173,7 +174,7 @@ fn cursor_seek() -> Result<(), Error> {
             check_cursor("bl", &fruits[6..], &b, 6);
         }
     }
-    let db = DB::<Mmap>::open::<FileOpenOptions, _>(&random_file.path)?;
+    let db = DB::open::<FileOpenOptions, _>(Arc::new(FakeMap), &random_file.path)?;
     db.check()
 }
 
@@ -182,7 +183,7 @@ fn cursor_seek() -> Result<(), Error> {
 fn check_cursor_starts(fruits: &Vec<&str>, b: &Bucket) {
     // randomly seek over the bucket
     let mut random_fruits = Vec::from(fruits.as_slice());
-    let mut rng = rand::thread_rng();
+    let mut rng = thread_rng();
     random_fruits.shuffle(&mut rng);
     for fruit in random_fruits.iter() {
         let start_index = fruits.binary_search(fruit).unwrap();
@@ -219,7 +220,7 @@ fn root_buckets() -> Result<(), Error> {
     {
         let db = OpenOptions::new()
             .strict_mode(true)
-            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
+            .open::<_, FileOpenOptions>(Arc::new(FakeMap), &random_file)?;
         {
             let tx = db.tx(true)?;
             {
@@ -265,7 +266,7 @@ fn kv_iter() -> Result<(), Error> {
     {
         let db = OpenOptions::new()
             .strict_mode(true)
-            .open::<_, FileOpenOptions, Mmap>(&random_file)?;
+            .open::<_, FileOpenOptions>(Arc::new(FakeMap), &random_file)?;
         {
             let tx = db.tx(true)?;
             {
