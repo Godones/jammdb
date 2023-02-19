@@ -75,8 +75,8 @@ pub trait MemoryMap {
 }
 
 pub struct Mmap {
-    size: usize,
-    addr: usize,
+    pub size: usize,
+    pub addr: usize,
 }
 
 impl Deref for Mmap {
