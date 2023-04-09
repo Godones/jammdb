@@ -2,7 +2,7 @@ use crate::errors::Result;
 
 use crate::meta::Meta;
 use crate::node::{Node, NodeData, NodeType};
-use crate::Mmap;
+use crate::{IndexByPageID, Mmap};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::mem::size_of;
@@ -15,21 +15,33 @@ pub(crate) type PageType = u8;
 
 #[derive(Clone)]
 pub(crate) struct Pages {
+    #[allow(unused)]
     pub(crate) data: Arc<Mmap>,
+    pub(crate) data1: Arc<dyn IndexByPageID>,
     pub(crate) pagesize: u64,
 }
 
 impl Pages {
-    pub fn new(data: Arc<Mmap>, pagesize: u64) -> Pages {
-        Pages { data, pagesize }
+    pub fn new(data: Arc<Mmap>, data1: Arc<dyn IndexByPageID>, pagesize: u64) -> Pages {
+        Pages {
+            data,
+            data1,
+            pagesize,
+        }
     }
+
+    // #[inline]
+    // pub fn page<'a>(&self, id: PageID) -> &'a Page {
+    //     #[allow(clippy::cast_ptr_alignment)]
+    //     unsafe {
+    //         &*(&self.data[(id * self.pagesize) as usize] as *const u8 as *const Page)
+    //     }
+    // }
 
     #[inline]
     pub fn page<'a>(&self, id: PageID) -> &'a Page {
-        #[allow(clippy::cast_ptr_alignment)]
-        unsafe {
-            &*(&self.data[(id * self.pagesize) as usize] as *const u8 as *const Page)
-        }
+        let buf = self.data1.index(id, self.pagesize as usize).unwrap();
+        unsafe { &*(&buf[0] as *const u8 as *const Page) }
     }
 }
 
@@ -53,12 +65,22 @@ impl Page {
     pub(crate) const TYPE_META: PageType = 0x03;
     pub(crate) const TYPE_FREELIST: PageType = 0x04;
 
+    #[allow(unused)]
     #[inline]
     pub(crate) fn from_buf(buf: &[u8], id: PageID, pagesize: u64) -> &Page {
         #[allow(clippy::cast_ptr_alignment)]
         unsafe {
             &*(&buf[(id * pagesize) as usize] as *const u8 as *const Page)
         }
+    }
+    #[inline]
+    pub(crate) fn from_index(
+        index_map: &Arc<dyn IndexByPageID>,
+        id: PageID,
+        pagesize: u64,
+    ) -> &Page {
+        let buf = index_map.index(id, pagesize as usize).unwrap();
+        unsafe { &*(&buf[0] as *const u8 as *const Page) }
     }
 
     pub(crate) fn meta(&self) -> &Meta {

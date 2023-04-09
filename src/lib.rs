@@ -112,7 +112,7 @@
 //!     Ok(())
 //! }//
 #![feature(error_in_core)]
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 #[allow(clippy::mutable_key_type)]
 mod bucket;
 mod bytes;

@@ -3,11 +3,10 @@ use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 
-use core::ops::DerefMut;
 use spin::{Mutex, RwLock};
 
 use crate::fs::{File, MemoryMap, OpenOption, PathLike};
-use crate::{bucket::BucketMeta, errors::Result, page::Page, tx::Tx, Mmap};
+use crate::{bucket::BucketMeta, errors::Result, page::Page, tx::Tx, IndexByPageID, Mmap};
 use crate::{freelist::Freelist, meta::Meta};
 
 const MAGIC_VALUE: u32 = 0x00AB_CDEF;
@@ -203,7 +202,11 @@ impl DB {
 }
 pub(crate) struct DBInner {
     pub(crate) generator: Arc<dyn MemoryMap>,
+    #[allow(unused)]
     pub(crate) data: Mutex<Arc<Mmap>>,
+
+    pub(crate) data1: Mutex<Arc<dyn IndexByPageID>>,
+
     pub(crate) mmap_lock: RwLock<()>,
     pub(crate) freelist: Mutex<Freelist>,
     pub(crate) file: Mutex<File>,
@@ -220,27 +223,32 @@ impl DBInner {
         strict_mode: bool,
     ) -> Result<Self> {
         file.lock_exclusive()?;
-        let data = mmap.map(file.deref_mut())?;
+        let data = mmap.map(&mut file)?;
         let data = { Arc::new(data) };
 
         let data = Mutex::new(data);
+
+        let data1 = mmap.do_map(&mut file)?;
+        let data1 = Mutex::new(data1);
+
         let db = DBInner {
             generator: mmap,
             data,
+            data1,
             mmap_lock: RwLock::new(()),
             freelist: Mutex::new(Freelist::new()),
-
             file: Mutex::new(file),
             open_ro_txs: Mutex::new(Vec::new()),
-
             pagesize,
             strict_mode,
         };
-
         {
             let meta = db.meta()?;
-            let data = db.data.lock();
-            let free_pages = Page::from_buf(&data, meta.freelist_page, pagesize).freelist();
+            // let data = db.data.lock();
+            // let free_pages = Page::from_buf(&data, meta.freelist_page, pagesize).freelist();
+
+            let data1 = db.data1.lock();
+            let free_pages = Page::from_index(&data1, meta.freelist_page, pagesize).freelist();
 
             if !free_pages.is_empty() {
                 db.freelist.lock().init(free_pages);
@@ -250,18 +258,30 @@ impl DBInner {
         Ok(db)
     }
 
-    pub(crate) fn resize(&self, file: &mut File, new_size: u64) -> Result<Arc<Mmap>> {
+    /// we increase the size of the file, and then remap the file
+    pub(crate) fn resize(
+        &self,
+        file: &mut File,
+        new_size: u64,
+    ) -> Result<(Arc<Mmap>, Arc<dyn IndexByPageID>)> {
         file.allocate(new_size)?;
         let _lock = self.mmap_lock.write();
         let mut data = self.data.lock();
-        let mmap = self.generator.map((*file).deref_mut())?;
+        let mut data1 = self.data1.lock();
+        let mmap1 = self.generator.do_map(file)?;
+        *data1 = mmap1;
+
+        let mmap = self.generator.map(file)?;
         *data = Arc::new(mmap);
-        Ok(data.clone())
+        Ok((data.clone(), data1.clone()))
     }
 
     pub(crate) fn meta(&self) -> Result<Meta> {
-        let data = self.data.lock();
-        let meta1 = Page::from_buf(&data, 0, self.pagesize).meta();
+        // let data = self.data.lock();
+        // let _meta1 = Page::from_buf(&data, 0, self.pagesize).meta();
+
+        let data1 = self.data1.lock();
+        let meta1 = Page::from_index(&data1, 0, self.pagesize).meta();
 
         // Double check that we have the right pagesize before we read the second page.
         if meta1.valid() && meta1.pagesize != self.pagesize {
@@ -272,7 +292,9 @@ impl DBInner {
             );
         }
 
-        let meta2 = Page::from_buf(&data, 1, self.pagesize).meta();
+        // let meta2 = Page::from_buf(&data, 1, self.pagesize).meta();
+        let meta2 = Page::from_index(&data1, 1, self.pagesize).meta();
+
         let meta = match (meta1.valid(), meta2.valid()) {
             (true, true) => {
                 assert_eq!(

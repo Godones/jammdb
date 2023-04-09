@@ -6,9 +6,11 @@ pub mod memfile;
 
 use alloc::boxed::Box;
 use alloc::string::ToString;
+use alloc::sync::Arc;
 use core::fmt::{Debug, Display};
 use core::ops::{Deref, DerefMut};
 use core2::io::{Read, Seek, Write};
+
 pub type IOResult<T> = core2::io::Result<T>;
 
 pub struct File {
@@ -71,7 +73,16 @@ pub trait PathLike: Display + Debug {
 pub trait DbFile: Seek + Write + Read + FileExt {}
 
 pub trait MemoryMap {
-    fn map(&self, file: &mut dyn DbFile) -> IOResult<Mmap>;
+    fn map(&self, file: &mut File) -> IOResult<Mmap>;
+    fn do_map(&self, file: &mut File) -> IOResult<Arc<dyn IndexByPageID>>;
+}
+
+pub trait MemoryMap2 {
+    fn do_map(&self, file: &mut dyn DbFile) -> IOResult<Arc<dyn IndexByPageID>>;
+}
+
+pub trait IndexByPageID {
+    fn index(&self, page_id: u64, page_size: usize) -> IOResult<&[u8]>;
 }
 
 pub struct Mmap {

@@ -1,9 +1,11 @@
 use crate::fs::{DbFile, File, FileExt, IOResult, MemoryMap, MetaData, OpenOption, PathLike};
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
+use alloc::sync::Arc;
 use alloc::vec::Vec;
+use core::ops::Add;
 
-use crate::Mmap;
+use crate::{IndexByPageID, Mmap};
 use core2::io::{ErrorKind, Read, Seek, SeekFrom, Write};
 use hashbrown::HashMap;
 use lazy_static::lazy_static;
@@ -197,12 +199,35 @@ pub struct FakeMap;
 
 impl MemoryMap for FakeMap {
     /// map
-    fn map(&self, file: &mut dyn DbFile) -> Result<Mmap, core2::io::Error> {
+    fn map(&self, file: &mut File) -> Result<Mmap, core2::io::Error> {
         //info!("[{}/{}] map file: {:#x}", file!(), line!(), file.size());
         let map = Mmap {
             size: file.size(),
             addr: file.addr(),
         };
         Ok(map)
+    }
+    fn do_map(&self, file: &mut File) -> IOResult<Arc<dyn IndexByPageID>> {
+        let t = IndexByPageIDImpl {
+            size: file.size(),
+            addr: file.addr(),
+        };
+        Ok(Arc::new(t))
+    }
+}
+
+struct IndexByPageIDImpl {
+    size: usize,
+    addr: usize,
+}
+
+impl IndexByPageID for IndexByPageIDImpl {
+    fn index(&self, page_id: u64, page_size: usize) -> IOResult<&[u8]> {
+        if (page_size * page_id as usize) > self.size {
+            panic!("index is out of range");
+        }
+        let addr = self.addr.add(page_id as usize * page_size);
+        let data = unsafe { core::slice::from_raw_parts(addr as *const u8, page_size) };
+        Ok(data)
     }
 }
