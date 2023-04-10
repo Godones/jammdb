@@ -4,6 +4,7 @@ use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::ops::Add;
+use alloc::alloc::{realloc,Layout};
 
 use crate::{IndexByPageID, Mmap};
 use core2::io::{ErrorKind, Read, Seek, SeekFrom, Write};
@@ -20,6 +21,8 @@ pub struct MemoryFile {
     pub name: String,
     pub pos: usize,
     pub data: Vec<u8>,
+    pub addr:usize,
+    pub size:usize,
 }
 
 impl Seek for MemoryFile {
@@ -30,7 +33,7 @@ impl Seek for MemoryFile {
             SeekFrom::Start(l) => self.pos = l as usize,
             SeekFrom::Current(l) => self.pos += l as usize,
             SeekFrom::End(l) => {
-                if l.unsigned_abs() as usize > self.data.len() {
+                if l.unsigned_abs() as usize > self.size {
                     return Err(core2::io::Error::new(ErrorKind::Other, "seek error"));
                 } else {
                     self.pos += l as usize;
@@ -46,13 +49,15 @@ impl Read for MemoryFile {
     /// read
     fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
         //info!("read buf len: {}", buf.len());
-        let act_size = self.data.len().saturating_sub(self.pos);
+        let act_size = self.size.saturating_sub(self.pos);
         let act_size = if act_size > buf.len() {
             buf.len()
         } else {
             act_size
         };
-        let addr = unsafe { self.data.as_ptr().add(self.pos) };
+        let addr = unsafe {
+            (self.addr as *const u8 ).add(self.pos)
+        };
         unsafe {
             core::ptr::copy(addr, buf.as_mut_ptr(), act_size);
         }
@@ -67,10 +72,17 @@ impl Write for MemoryFile {
     fn write(&mut self, buf: &[u8]) -> IOResult<usize> {
         //info!("write buf len: {}", buf.len());
         let act_size = buf.len() + self.pos;
-        if act_size > self.data.len() {
-            self.data.resize(act_size, 0);
+        if act_size > self.size {
+            let r = unsafe{
+                realloc(self.addr as *mut u8,Layout::from_size_align(self.size,4096).unwrap(),act_size)
+            };
+            self.addr  = r as usize;
+            self.size = act_size;
         }
-        self.data[self.pos..act_size].copy_from_slice(buf);
+        let data = unsafe{
+            core::slice::from_raw_parts_mut(self.addr as *mut u8,act_size)
+        };
+        data[self.pos..act_size].copy_from_slice(buf);
         self.pos += buf.len();
         FILE_S.lock().insert(self.name.clone(), self.clone());
         Ok(buf.len())
@@ -127,6 +139,8 @@ impl MemoryFile {
             name: name.to_string(),
             pos: 0,
             data: Vec::new(),
+            addr: 0,
+            size: 0,
         };
         FILE_S.lock().insert(name.to_string(), file.clone());
         Some(file)
@@ -140,17 +154,16 @@ impl FileExt for MemoryFile {
     }
     /// 扩展大小
     fn allocate(&mut self, new_size: u64) -> IOResult<()> {
-        //info!(
-        //     "before allocate: {:?}, new_size:{:#x}",
-        //     self.data.len(),
-        //     new_size
-        // );
-        if self.data.len() > new_size as usize {
+        if self.size > new_size as usize {
             return Ok(());
         }
-        self.data.resize(new_size as usize, 0);
+        let r = unsafe {
+            realloc(self.addr as *mut u8, Layout::from_size_align(self.size, 4096).unwrap(), new_size as usize)
+        };
+        self.size = new_size as usize;
+        self.addr = r as usize;
+
         FILE_S.lock().insert(self.name.clone(), self.clone());
-        //info!("after allocate: {:#x}", self.data.len());
         Ok(())
     }
     fn unlock(&self) -> IOResult<()> {
@@ -160,7 +173,7 @@ impl FileExt for MemoryFile {
     /// get the metadata
     fn metadata(&self) -> IOResult<MetaData> {
         let data = MetaData {
-            len: self.data.len() as u64,
+            len: self.size as u64
         };
         Ok(data)
     }
@@ -171,11 +184,11 @@ impl FileExt for MemoryFile {
     }
 
     fn size(&self) -> usize {
-        self.data.len()
+        self.size
     }
 
     fn addr(&self) -> usize {
-        self.data.as_ptr() as usize
+        self.addr
     }
 }
 
