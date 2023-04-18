@@ -2,7 +2,7 @@ use crate::errors::Result;
 
 use crate::meta::Meta;
 use crate::node::{Node, NodeData, NodeType};
-use crate::{IndexByPageID, Mmap};
+use crate::IndexByPageID;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::mem::size_of;
@@ -15,19 +15,13 @@ pub(crate) type PageType = u8;
 
 #[derive(Clone)]
 pub(crate) struct Pages {
-    #[allow(unused)]
-    pub(crate) data: Arc<Mmap>,
-    pub(crate) data1: Arc<dyn IndexByPageID>,
+    pub(crate) data: Arc<dyn IndexByPageID>,
     pub(crate) pagesize: u64,
 }
 
 impl Pages {
-    pub fn new(data: Arc<Mmap>, data1: Arc<dyn IndexByPageID>, pagesize: u64) -> Pages {
-        Pages {
-            data,
-            data1,
-            pagesize,
-        }
+    pub fn new(data: Arc<dyn IndexByPageID>, pagesize: u64) -> Pages {
+        Pages { data, pagesize }
     }
 
     // #[inline]
@@ -40,7 +34,7 @@ impl Pages {
 
     #[inline]
     pub fn page<'a>(&self, id: PageID) -> &'a Page {
-        let buf = self.data1.index(id, self.pagesize as usize).unwrap();
+        let buf = self.data.index(id, self.pagesize as usize).unwrap();
         unsafe { &*(&buf[0] as *const u8 as *const Page) }
     }
 }

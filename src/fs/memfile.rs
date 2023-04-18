@@ -1,12 +1,12 @@
 use crate::fs::{DbFile, File, FileExt, IOResult, MemoryMap, MetaData, OpenOption, PathLike};
+use alloc::alloc::{realloc, Layout};
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::ops::Add;
-use alloc::alloc::{realloc,Layout};
 
-use crate::{IndexByPageID, Mmap};
+use crate::{IndexByPageID};
 use core2::io::{ErrorKind, Read, Seek, SeekFrom, Write};
 use hashbrown::HashMap;
 use lazy_static::lazy_static;
@@ -21,8 +21,8 @@ pub struct MemoryFile {
     pub name: String,
     pub pos: usize,
     pub data: Vec<u8>,
-    pub addr:usize,
-    pub size:usize,
+    pub addr: usize,
+    pub size: usize,
 }
 
 impl Seek for MemoryFile {
@@ -55,9 +55,7 @@ impl Read for MemoryFile {
         } else {
             act_size
         };
-        let addr = unsafe {
-            (self.addr as *const u8 ).add(self.pos)
-        };
+        let addr = unsafe { (self.addr as *const u8).add(self.pos) };
         unsafe {
             core::ptr::copy(addr, buf.as_mut_ptr(), act_size);
         }
@@ -73,15 +71,17 @@ impl Write for MemoryFile {
         //info!("write buf len: {}", buf.len());
         let act_size = buf.len() + self.pos;
         if act_size > self.size {
-            let r = unsafe{
-                realloc(self.addr as *mut u8,Layout::from_size_align(self.size,4096).unwrap(),act_size)
+            let r = unsafe {
+                realloc(
+                    self.addr as *mut u8,
+                    Layout::from_size_align(self.size, 4096).unwrap(),
+                    act_size,
+                )
             };
-            self.addr  = r as usize;
+            self.addr = r as usize;
             self.size = act_size;
         }
-        let data = unsafe{
-            core::slice::from_raw_parts_mut(self.addr as *mut u8,act_size)
-        };
+        let data = unsafe { core::slice::from_raw_parts_mut(self.addr as *mut u8, act_size) };
         data[self.pos..act_size].copy_from_slice(buf);
         self.pos += buf.len();
         FILE_S.lock().insert(self.name.clone(), self.clone());
@@ -158,7 +158,11 @@ impl FileExt for MemoryFile {
             return Ok(());
         }
         let r = unsafe {
-            realloc(self.addr as *mut u8, Layout::from_size_align(self.size, 4096).unwrap(), new_size as usize)
+            realloc(
+                self.addr as *mut u8,
+                Layout::from_size_align(self.size, 4096).unwrap(),
+                new_size as usize,
+            )
         };
         self.size = new_size as usize;
         self.addr = r as usize;
@@ -173,7 +177,7 @@ impl FileExt for MemoryFile {
     /// get the metadata
     fn metadata(&self) -> IOResult<MetaData> {
         let data = MetaData {
-            len: self.size as u64
+            len: self.size as u64,
         };
         Ok(data)
     }
@@ -211,15 +215,6 @@ impl PathLike for &String {
 pub struct FakeMap;
 
 impl MemoryMap for FakeMap {
-    /// map
-    fn map(&self, file: &mut File) -> Result<Mmap, core2::io::Error> {
-        //info!("[{}/{}] map file: {:#x}", file!(), line!(), file.size());
-        let map = Mmap {
-            size: file.size(),
-            addr: file.addr(),
-        };
-        Ok(map)
-    }
     fn do_map(&self, file: &mut File) -> IOResult<Arc<dyn IndexByPageID>> {
         let t = IndexByPageIDImpl {
             size: file.size(),
@@ -242,5 +237,9 @@ impl IndexByPageID for IndexByPageIDImpl {
         let addr = self.addr.add(page_id as usize * page_size);
         let data = unsafe { core::slice::from_raw_parts(addr as *const u8, page_size) };
         Ok(data)
+    }
+
+    fn len(&self) -> usize {
+        self.size
     }
 }

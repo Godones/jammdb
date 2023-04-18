@@ -675,7 +675,7 @@ impl<'b> InnerBucket<'b> {
                                 return Err(Error::BucketExists);
                             }
                             let b = Self::from_meta(meta, self.pages.clone());
-                            self.buckets.insert(name.clone(), Rc::new(RefCell::new(b)));
+                            self.buckets.insert(name, Rc::new(RefCell::new(b)));
                         }
                         _ => return Err(Error::IncompatibleValue),
                     },

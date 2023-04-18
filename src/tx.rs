@@ -135,10 +135,7 @@ impl<'tx> Tx<'tx> {
         let freelist = Rc::new(RefCell::new(TxFreelist::new(meta.clone(), freelist)));
 
         let data = db.inner.data.lock().clone();
-        // let pages = Pages::new(data, db.inner.pagesize);
-
-        let data1 = db.inner.data1.lock().clone();
-        let pages = Pages::new(data, data1, db.inner.pagesize);
+        let pages = Pages::new(data, db.inner.pagesize);
 
         let num_freelist_pages = pages.page(meta.freelist_page).overflow + 1;
         let root = InnerBucket::from_meta(meta.root, pages.clone());
@@ -307,8 +304,8 @@ impl<'tx> TxInner<'tx> {
             if current_size < required_size {
                 let size_diff = required_size - current_size;
                 let alloc_size = ((size_diff / MIN_ALLOC_SIZE) + 1) * MIN_ALLOC_SIZE;
-                let (data, data1) = self.db.inner.resize(file, current_size + alloc_size)?;
-                self.pages = Pages::new(data, data1, self.db.inner.pagesize);
+                let data = self.db.inner.resize(file, current_size + alloc_size)?;
+                self.pages = Pages::new(data, self.db.inner.pagesize);
             }
 
             // write the data to the file
