@@ -5,6 +5,7 @@ use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::ops::Add;
+use alloc::alloc::alloc;
 
 use crate::{IndexByPageID};
 use core2::io::{ErrorKind, Read, Seek, SeekFrom, Write};
@@ -158,11 +159,16 @@ impl FileExt for MemoryFile {
             return Ok(());
         }
         let r = unsafe {
-            realloc(
-                self.addr as *mut u8,
-                Layout::from_size_align(self.size, 4096).unwrap(),
-                new_size as usize,
-            )
+            if self.addr == 0{
+                alloc(Layout::from_size_align(new_size as usize, 4096).unwrap())
+            }
+            else {
+                realloc(
+                    self.addr as *mut u8,
+                    Layout::from_size_align(self.size, 4096).unwrap(),
+                    new_size as usize,
+                )
+            }
         };
         self.size = new_size as usize;
         self.addr = r as usize;
