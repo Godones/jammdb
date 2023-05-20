@@ -3,7 +3,7 @@ use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 
-use spin::{Mutex, RwLock};
+use spin::{Mutex, MutexGuard, RwLock};
 
 use crate::fs::{File, MemoryMap, OpenOption, PathLike};
 use crate::{bucket::BucketMeta, errors::Result, page::Page, tx::Tx, IndexByPageID};
@@ -193,6 +193,10 @@ impl DB {
     /// Returns the database's pagesize.
     pub fn pagesize(&self) -> u64 {
         self.inner.pagesize
+    }
+
+    pub fn file(&self) -> MutexGuard<File> {
+       self.inner.file.lock()
     }
 
     #[doc(hidden)]
